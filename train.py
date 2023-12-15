@@ -114,6 +114,7 @@ def compute_class_weights(labels):
     class_weights = total_samples / (len(class_counts) * class_counts.float())
     return class_weights
 
+
 def train(data_dir, model_dir, args):
     seed_everything(args.seed)
 
