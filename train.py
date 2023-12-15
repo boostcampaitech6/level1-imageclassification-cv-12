@@ -126,6 +126,7 @@ if __name__ == "__main__":
     else:
         trainer_name = args.trainer.lower()
     train_module = getattr(import_module(f"trainer.{trainer_name}_trainer"), args.trainer+"Trainer")
+    print(f" Use {trainer_name}_trainer ...")
     trainer = train_module(
         data_dir, model_dir, args
     )

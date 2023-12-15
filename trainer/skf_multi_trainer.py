@@ -36,7 +36,7 @@ class MultiTrainer:
     5. WeightedRandomSampler 구현
     """
     
-    def __init__(self, data_dir, model_dir, **args):
+    def __init__(self, data_dir, model_dir, args):
         """
         Args:
             args.seed: random seed (default: 42)
@@ -47,7 +47,7 @@ class MultiTrainer:
         """
         
         self.data_dir = data_dir
-        self.model_dr = model_dir
+        self.model_dir = model_dir
         
         wandb.init(
         project="Boostcamp_Mask_ImageClassification",
