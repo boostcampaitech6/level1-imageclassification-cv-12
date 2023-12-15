@@ -5,6 +5,7 @@ import multiprocessing
 import os
 import random
 import re
+import wandb
 from importlib import import_module
 from pathlib import Path
 
@@ -99,6 +100,7 @@ def compute_class_weights(labels):
     total_samples = len(labels)
     class_weights = total_samples / (len(class_counts) * class_counts.float())
     return class_weights
+
 
 def train(data_dir, model_dir, args):
     seed_everything(args.seed)
@@ -265,6 +267,16 @@ def train(data_dir, model_dir, args):
             logger.add_scalar("Val/loss", val_loss, epoch)
             logger.add_scalar("Val/accuracy", val_acc, epoch)
             logger.add_figure("results", figure, epoch)
+
+            wandb.log(
+                {
+                    "Train Loss": train_loss,
+                    "Train Accuracy": train_acc,
+                    "Val Loss": val_loss,
+                    "Val Accuracy": val_acc,
+                }
+            )
+
             print()
 
 
@@ -358,6 +370,20 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     print(args)
+
+    wandb.init(
+        project="Boostcamp_Mask_ImageClassification",
+        notes="",
+        config={
+            "Architecture": args.model,
+            "Img_size": args.resize,
+            "Loss": args.criterion,
+            "Learning_rate": args.lr,
+            "Epochs": args.epochs,
+        },
+    )
+    wandb.run.name = args.name
+    wandb.run.save()
 
     data_dir = args.data_dir
     model_dir = args.model_dir
