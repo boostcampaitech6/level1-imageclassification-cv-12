@@ -27,16 +27,6 @@ from WBAugmenter import WBEmulator as wbAug
 from tqdm import tqdm
 import pickle
 
-import albumentations as A
-import albumentations.pytorch.ToTensorV2 as ToTensorV2
-
-# https://github.com/mahmoudnafifi/WB_color_augmenter
-# https://colab.research.google.com/drive/1wbUW87MoXabdzDh53YWoOXrvOdjpubQ4?usp=sharing#scrollTo=T226o1Jb64P3
-# Mahmoud Afifi and Michael S. Brown. What Else Can Fool Deep Learning? Addressing Color Constancy Errors on Deep Neural Network Performance. International Conference on Computer Vision (ICCV), 2019.
-from WBAugmenter import WBEmulator as wbAug
-from tqdm import tqdm
-import pickle
-
 # 지원되는 이미지 확장자 리스트
 IMG_EXTENSIONS = [
     ".jpg",
