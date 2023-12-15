@@ -6,7 +6,8 @@ import datetime
 from pytz import timezone
 
 import warnings
-warnings.filterwarnings("ignore", category=UserWarning) 
+
+warnings.filterwarnings("ignore", category=UserWarning)
 
 
 if __name__ == "__main__":

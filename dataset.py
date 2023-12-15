@@ -18,7 +18,7 @@ from torchvision.transforms import (
 )
 
 import albumentations as A
-import albumentations.pytorch.ToTensorV2 as ToTensorV2
+from albumentations.pytorch import ToTensorV2
 
 # https://github.com/mahmoudnafifi/WB_color_augmenter
 # https://colab.research.google.com/drive/1wbUW87MoXabdzDh53YWoOXrvOdjpubQ4?usp=sharing#scrollTo=T226o1Jb64P3
@@ -26,6 +26,7 @@ import albumentations.pytorch.ToTensorV2 as ToTensorV2
 from WBAugmenter import WBEmulator as wbAug
 from tqdm import tqdm
 import pickle
+
 
 # 지원되는 이미지 확장자 리스트
 IMG_EXTENSIONS = [
@@ -119,7 +120,12 @@ class CustomAugmentation:
                 A.RandomBrightnessContrast(brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5),
                 A.GaussNoise(),
                 A.CoarseDropout(
-                    max_holes=10, max_height=8, max_width=8, min_holes=None, min_height=5, min_width=5
+                    max_holes=10,
+                    max_height=8,
+                    max_width=8,
+                    min_holes=None,
+                    min_height=5,
+                    min_width=5,
                 ),
                 A.Normalize(mean=mean, std=std),
                 ToTensorV2(),
@@ -222,7 +228,12 @@ class MaskBaseDataset(Dataset):
         self.aug_prob = aug_prob
 
     def compute_mapping(self):
-        # breakpoint()
+        """
+        White balance를 적용할 때 사용할 mapping을 만들고 불러오는 함수입니다
+
+        Returns:
+            List: white balance mapping을 담은 List를 반환합니다
+        """
         temp = os.path.split(self.data_dir)[0]
         if os.path.exists(os.path.join(temp, "wb_mfs.pickle")):
             with open(os.path.join(temp, "wb_mfs.pickle"), "rb") as handle:
