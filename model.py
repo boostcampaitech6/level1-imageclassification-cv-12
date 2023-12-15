@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
-
+import torch.nn.init as init
+from torchvision.models import *
 
 class BaseModel(nn.Module):
     """
@@ -51,19 +52,91 @@ class BaseModel(nn.Module):
 
 
 # Custom Model Template
-class MyModel(nn.Module):
+class MultiLabelModel(nn.Module):
     def __init__(self, num_classes):
-        super().__init__()
+        super(MultiLabelModel, self).__init__()
 
         """
-        1. 위와 같이 생성자의 parameter 에 num_claases 를 포함해주세요.
-        2. 나만의 모델 아키텍쳐를 디자인 해봅니다.
-        3. 모델의 output_dimension 은 num_classes 로 설정해주세요.
+        1. backbone 선택 후 classifier 차원 수 설정
+        2. 모델의 output_dimension 은 num_classes 로 설정
         """
+        
+        mask_num_classes = int(num_classes // 6)
+        gender_num_classes = int(num_classes // 9)
+        age_num_classes = int(num_classes // 6)
+        
+        # pretrained model -> 각 모델의 마지막 fc layer 를 빼고 차원 수 맞춰주는 작업 필요
+        resnet = resnet101(pretrained=True)
+        efficientnet = efficientnet_b7(pretrained=True)
+        self.features = nn.Sequential(*list(efficientnet.children())[:-1])
+        
+        # # Freeze pretrained weights
+        # for param in self.features.parameters():
+        #     param.requires_grad = False
+        
+        # three classifier
+        self.mask_classifier = nn.Sequential(
+            nn.Linear(2560, 1024),
+            nn.LeakyReLU(0.1),
+            nn.Dropout(),
+            nn.Linear(1024, 512),
+            nn.LeakyReLU(0.1),
+            nn.Dropout(),
+            nn.Linear(512, mask_num_classes)
+        )
+        
+        self.gender_classifier = nn.Sequential(
+            nn.Linear(2560, 1024),
+            nn.LeakyReLU(0.1),
+            nn.Dropout(),
+            nn.Linear(1024, 512),
+            nn.LeakyReLU(0.1),
+            nn.Dropout(),
+            nn.Linear(512, gender_num_classes)
+        )
 
+        self.age_classifier = nn.Sequential(
+            nn.Linear(2560, 1024),
+            nn.LeakyReLU(0.1),
+            nn.Dropout(),
+            nn.Linear(1024, 512),
+            nn.LeakyReLU(0.1),
+            nn.Dropout(),
+            nn.Linear(512, age_num_classes)
+        )
+
+        self.initialize_weights(self.mask_classifier)
+        self.initialize_weights(self.gender_classifier)
+        self.initialize_weights(self.age_classifier)
+    
     def forward(self, x):
         """
-        1. 위에서 정의한 모델 아키텍쳐를 forward propagation 을 진행해주세요
-        2. 결과로 나온 output 을 return 해주세요
+        1. 클래스 별로 3개의 output 출력
         """
-        return x
+        # Feature extraction
+        features = self.features(x)
+        features = features.view(features.size(0), -1)  # Flatten features
+
+        # Task-specific output
+        mask_output = self.mask_classifier(features)
+        gender_output = self.gender_classifier(features)
+        age_output = self.age_classifier(features)
+
+
+        return mask_output, gender_output, age_output
+    
+    def initialize_weights(self, model):
+        """
+        He 가중치 초기화
+        """
+        for m in model.modules():
+            if isinstance(m, nn.Conv2d):
+                init.xavier_uniform_(m.weight.data)
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='leaky_relu')
+                m.bias.data.zero_()
