@@ -8,16 +8,28 @@ import re
 import wandb
 from importlib import import_module
 from pathlib import Path
+from collections import Counter
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
+from torch.utils.data.sampler import WeightedRandomSampler
 from torch.utils.tensorboard import SummaryWriter
 
 from dataset import MaskBaseDataset
 from loss import create_criterion
+
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import f1_score
+
+import wandb
+import datetime
+from pytz import timezone
+
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning) 
 
 
 def seed_everything(seed):
@@ -130,7 +142,7 @@ def train(data_dir, model_dir, args):
         std=dataset.std,
     )
     dataset.set_transform(transform)
-
+    
     # -- data_loader
     train_set, val_set = dataset.split_dataset()
 
@@ -155,16 +167,31 @@ def train(data_dir, model_dir, args):
     # -- model
     model_module = getattr(import_module("model"), args.model)  # default: BaseModel
     model = model_module(num_classes=num_classes).to(device)
+    # mulit label 학습을 위하여 각 features, classifier 별로 lr 설정
+    train_params = [{'params': getattr(model, 'features').parameters(), 'lr': args.lr / 10, 'weight_decay':5e-4},
+                    {'params': getattr(model, 'mask_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
+                    {'params': getattr(model, 'gender_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
+                    {'params': getattr(model, 'age_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4}]
     model = torch.nn.DataParallel(model)
 
     # -- loss & metric
+    # focal loss 를 위한 각 클래스 별 가중치
+    m_cls_weight = compute_class_weights(torch.tensor(dataset.mask_labels, device=device))
+    g_cls_weight = compute_class_weights(torch.tensor(dataset.gender_labels, device=device))
+    a_cls_weight = compute_class_weights(torch.tensor(dataset.age_labels, device=device))
+    
+    # 각 클래스별 loss 설정
+    m_criterion = create_criterion(args.criterion, alpha=m_cls_weight)
+    g_criterion = create_criterion(args.criterion, alpha=g_cls_weight)
+    a_criterion = create_criterion(args.criterion, alpha=a_cls_weight)
     criterion = create_criterion(args.criterion)  # default: cross_entropy
     opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
-    optimizer = opt_module(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=args.lr,
-        weight_decay=5e-4,
-    )
+    optimizer = opt_module(train_params)
+    # optimizer = opt_module(
+    #     filter(lambda p: p.requires_grad, model.parameters()),
+    #     lr=args.lr,
+    #     weight_decay=5e-4,
+    # )
     scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
 
     # -- logging
@@ -178,30 +205,68 @@ def train(data_dir, model_dir, args):
         # train loop
         model.train()
         loss_value = 0
+        m_value = 0
+        g_value = 0
+        a_value = 0
+        
         matches = 0
+        mask_matches = 0
+        gender_matches = 0
+        age_matches = 0
+        
         for idx, train_batch in enumerate(train_loader):
             inputs, labels = train_batch
             inputs = inputs.to(device)
             labels = labels.to(device)
+            mask_label, gender_label, age_label = dataset.decode_multi_class(labels)
 
             optimizer.zero_grad()
 
-            outs = model(inputs)
-            preds = torch.argmax(outs, dim=-1)
-            loss = criterion(outs, labels)
-
-            loss.backward()
+            mask_output, gender_output, age_output = model(inputs)
+            
+            mask_loss = m_criterion(mask_output, mask_label)
+            gender_loss = g_criterion(gender_output, gender_label)
+            age_loss = a_criterion(age_output, age_label)
+            
+            # mask_loss.backward(retain_graph=True)
+            # gender_loss.backward(retain_graph=True)
+            # age_loss.backward()
+            
+            sum_loss = mask_loss + gender_loss + 1.5 * age_loss
+            sum_loss.backward()
+            
+            mask_pred = torch.argmax(mask_output, dim=-1)
+            gender_pred = torch.argmax(gender_output, dim=-1)
+            age_pred = torch.argmax(age_output, dim=-1)
+            preds = mask_pred * 6 + gender_pred * 3 + age_pred
+            #loss = criterion(outs, labels)
+            #loss.backward()
+            
             optimizer.step()
 
-            loss_value += loss.item()
+            loss_value += sum_loss.item()
+            m_value += mask_loss.item()
+            g_value += gender_loss.item()
+            a_value += age_loss.item()
+            
             matches += (preds == labels).sum().item()
+            mask_matches += (mask_pred == mask_label).sum().item()
+            gender_matches += (gender_pred == gender_label).sum().item()
+            age_matches += (age_pred == age_label).sum().item()
             if (idx + 1) % args.log_interval == 0:
                 train_loss = loss_value / args.log_interval
+                m_loss = m_value / args.log_interval
+                g_loss = g_value / args.log_interval
+                a_loss = a_value / args.log_interval
+                
                 train_acc = matches / args.batch_size / args.log_interval
+                m_acc = mask_matches / args.batch_size / args.log_interval
+                g_acc = gender_matches / args.batch_size / args.log_interval
+                a_acc = age_matches / args.batch_size / args.log_interval
                 current_lr = get_lr(optimizer)
                 print(
                     f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)}) || "
-                    f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr {current_lr}"
+                    f"training loss {train_loss:4.4} m_loss {m_loss:4.4} g_loss {g_loss:4.4} a_loss {a_loss:4.4} || training accuracy {train_acc:4.2%} m_acc {m_acc:4.2%} g_acc {g_acc:4.2%} a_acc {a_acc:4.2%} || lr {current_lr}"
                 )
                 logger.add_scalar(
                     "Train/loss", train_loss, epoch * len(train_loader) + idx
@@ -211,7 +276,22 @@ def train(data_dir, model_dir, args):
                 )
 
                 loss_value = 0
+                m_value = 0
+                g_value = 0
+                a_value = 0
+                
                 matches = 0
+                mask_matches = 0
+                gender_matches = 0
+                age_matches = 0
+                
+                wandb.log({
+                    "Total loss": train_loss,
+                    "Mask loss": mask_loss.item() / args.log_interval,
+                    "Gender loss": gender_loss.item() / args.log_interval,
+                    "Age loss": age_loss.item() / args.log_interval,
+                    "Total acc" : train_acc
+                })
 
         scheduler.step()
 
@@ -221,19 +301,35 @@ def train(data_dir, model_dir, args):
             model.eval()
             val_loss_items = []
             val_acc_items = []
+            val_f1_items = []  # 추가: F1 score를 기록하기 위한 리스트
             figure = None
             for val_batch in val_loader:
                 inputs, labels = val_batch
                 inputs = inputs.to(device)
                 labels = labels.to(device)
+                mask_label, gender_label, age_label = dataset.decode_multi_class(labels)
 
-                outs = model(inputs)
-                preds = torch.argmax(outs, dim=-1)
-
-                loss_item = criterion(outs, labels).item()
+                #outs = model(inputs)
+                mask_output, gender_output, age_output = model(inputs)
+                mask_pred = torch.argmax(mask_output, dim=-1)
+                gender_pred = torch.argmax(gender_output, dim=-1)
+                age_pred = torch.argmax(age_output, dim=-1)
+                preds = mask_pred * 6 + gender_pred * 3 + age_pred
+                #preds = torch.argmax(outs, dim=-1)
+                
+                mask_loss = m_criterion(mask_output, mask_label)
+                gender_loss = g_criterion(gender_output, gender_label)
+                age_loss = a_criterion(age_output, age_label)
+                sum_loss = mask_loss + gender_loss + 1.5 * age_loss
+                
+                loss_item = sum_loss.item()
                 acc_item = (labels == preds).sum().item()
                 val_loss_items.append(loss_item)
                 val_acc_items.append(acc_item)
+                
+                # F1 score 계산
+                f1_item = f1_score(labels.cpu().numpy(), preds.cpu().numpy(), average='macro')
+                val_f1_items.append(f1_item)
 
                 if figure is None:
                     inputs_np = (
@@ -252,6 +348,7 @@ def train(data_dir, model_dir, args):
 
             val_loss = np.sum(val_loss_items) / len(val_loader)
             val_acc = np.sum(val_acc_items) / len(val_set)
+            val_f1 = np.mean(val_f1_items)  # 추가: F1 score의 평균을 계산
             best_val_loss = min(best_val_loss, val_loss)
             if val_acc > best_val_acc:
                 print(
@@ -259,13 +356,17 @@ def train(data_dir, model_dir, args):
                 )
                 torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
                 best_val_acc = val_acc
+                counter = 0
+            else:
+                counter += 1
             torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
             print(
-                f"[Val] acc : {val_acc:4.2%}, loss: {val_loss:4.2} || "
-                f"best acc : {best_val_acc:4.2%}, best loss: {best_val_loss:4.2}"
+                f"[Val] acc: {val_acc:4.2%}, loss: {val_loss:4.2}, F1 score: {val_f1:4.2} || "
+                f"best acc: {best_val_acc:4.2%}, best loss: {best_val_loss:4.2}"
             )
             logger.add_scalar("Val/loss", val_loss, epoch)
             logger.add_scalar("Val/accuracy", val_acc, epoch)
+            logger.add_scalar("Val/f1_score", val_f1, epoch)  # 추가: F1 score를 기록
             logger.add_figure("results", figure, epoch)
 
             wandb.log(
@@ -278,6 +379,12 @@ def train(data_dir, model_dir, args):
             )
 
             print()
+
+            wandb.log({
+                    "Valid loss": val_loss,
+                    "Valid acc" : val_acc,
+                    "Valid f1_score": val_f1  # 추가: F1 score를 기록
+                })
 
 
 if __name__ == "__main__":
