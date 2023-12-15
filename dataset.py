@@ -27,6 +27,16 @@ from WBAugmenter import WBEmulator as wbAug
 from tqdm import tqdm
 import pickle
 
+import albumentations as A
+import albumentations.pytorch.ToTensorV2 as ToTensorV2
+
+# https://github.com/mahmoudnafifi/WB_color_augmenter
+# https://colab.research.google.com/drive/1wbUW87MoXabdzDh53YWoOXrvOdjpubQ4?usp=sharing#scrollTo=T226o1Jb64P3
+# Mahmoud Afifi and Michael S. Brown. What Else Can Fool Deep Learning? Addressing Color Constancy Errors on Deep Neural Network Performance. International Conference on Computer Vision (ICCV), 2019.
+from WBAugmenter import WBEmulator as wbAug
+from tqdm import tqdm
+import pickle
+
 # 지원되는 이미지 확장자 리스트
 IMG_EXTENSIONS = [
     ".jpg",
@@ -222,12 +232,7 @@ class MaskBaseDataset(Dataset):
         self.aug_prob = aug_prob
 
     def compute_mapping(self):
-        """
-        White balance를 적용할 때 사용할 mapping을 만들고 불러오는 함수입니다
-
-        Returns:
-            List: white balance mapping을 담은 List를 반환합니다
-        """
+        # breakpoint()
         temp = os.path.split(self.data_dir)[0]
         if os.path.exists(os.path.join(temp, "wb_mfs.pickle")):
             with open(os.path.join(temp, "wb_mfs.pickle"), "rb") as handle:

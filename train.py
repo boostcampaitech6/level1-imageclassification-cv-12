@@ -114,6 +114,17 @@ def compute_class_weights(labels):
     return class_weights
 
 
+# -- Focal Loss 를 위한 가중치 계산
+def compute_class_weights(labels):
+    """
+    Focal Loss 를 위한 가중치 계산 함수 입니다.
+    [백광현]
+    """
+    class_counts = torch.bincount(labels)
+    total_samples = len(labels)
+    class_weights = total_samples / (len(class_counts) * class_counts.float())
+    return class_weights
+
 def train(data_dir, model_dir, args):
     seed_everything(args.seed)
 
