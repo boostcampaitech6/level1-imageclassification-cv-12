@@ -27,6 +27,7 @@ from WBAugmenter import WBEmulator as wbAug
 from tqdm import tqdm
 import pickle
 
+
 # 지원되는 이미지 확장자 리스트
 IMG_EXTENSIONS = [
     ".jpg",
@@ -101,7 +102,9 @@ class AddGaussianNoise(object):
         return tensor + torch.randn(tensor.size()) * self.std + self.mean
 
     def __repr__(self):
-        return self.__class__.__name__ + "(mean={0}, std={1})".format(self.mean, self.std)
+        return self.__class__.__name__ + "(mean={0}, std={1})".format(
+            self.mean, self.std
+        )
 
 
 class CustomAugmentation:
@@ -113,13 +116,22 @@ class CustomAugmentation:
             [
                 A.CenterCrop(height=320, width=256),
                 A.RandomCrop(height=resize[0], width=resize[1], p=1.0),
-                A.ElasticTransform(p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
+                A.ElasticTransform(
+                    p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03
+                ),
                 A.HorizontalFlip(p=0.5),
                 A.ShiftScaleRotate(p=0.5),
-                A.RandomBrightnessContrast(brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5),
+                A.RandomBrightnessContrast(
+                    brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5
+                ),
                 A.GaussNoise(),
                 A.CoarseDropout(
-                    max_holes=10, max_height=8, max_width=8, min_holes=None, min_height=5, min_width=5
+                    max_holes=10,
+                    max_height=8,
+                    max_width=8,
+                    min_holes=None,
+                    min_height=5,
+                    min_width=5,
                 ),
                 A.Normalize(mean=mean, std=std),
                 ToTensorV2(),
@@ -155,7 +167,9 @@ class GenderLabels(int, Enum):
         elif value == "female":
             return cls.FEMALE
         else:
-            raise ValueError(f"Gender value should be either 'male' or 'female', {value}")
+            raise ValueError(
+                f"Gender value should be either 'male' or 'female', {value}"
+            )
 
 
 class AgeLabels(int, Enum):
@@ -234,7 +248,10 @@ class MaskBaseDataset(Dataset):
                 mapping_funcs = pickle.load(handle)
             return mapping_funcs
 
-        print("Computing mapping functions for WB augmenter. " "This process may take time....")
+        print(
+            "Computing mapping functions for WB augmenter. "
+            "This process may take time...."
+        )
         mapping_funcs = []
         for idx in tqdm(range(super().__len__())):
             img = self.read_image(idx)
@@ -255,7 +272,9 @@ class MaskBaseDataset(Dataset):
             img_folder = os.path.join(self.data_dir, profile)
             for file_name in os.listdir(img_folder):
                 _file_name, ext = os.path.splitext(file_name)
-                if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
+                if (
+                    _file_name not in self._file_names
+                ):  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
                     continue
 
                 img_path = os.path.join(
@@ -276,7 +295,9 @@ class MaskBaseDataset(Dataset):
         """데이터셋의 통계치를 계산하는 메서드"""
         has_statistics = self.mean is not None and self.std is not None
         if not has_statistics:
-            print("[Warning] Calculating statistics... It can take a long time depending on your CPU machine")
+            print(
+                "[Warning] Calculating statistics... It can take a long time depending on your CPU machine"
+            )
             sums = []
             squared = []
             for image_path in self.image_paths[:3000]:
@@ -408,7 +429,9 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
                 img_folder = os.path.join(self.data_dir, profile)
                 for file_name in os.listdir(img_folder):
                     _file_name, ext = os.path.splitext(file_name)
-                    if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
+                    if (
+                        _file_name not in self._file_names
+                    ):  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
                         continue
 
                     img_path = os.path.join(
@@ -464,7 +487,10 @@ class BalancedDataset(MaskSplitByProfileDataset):
                 mapping_funcs = pickle.load(handle)
             return mapping_funcs
 
-        print("Computing mapping functions for WB augmenter. " "This process may take time....")
+        print(
+            "Computing mapping functions for WB augmenter. "
+            "This process may take time...."
+        )
         mapping_funcs = []
         for idx in tqdm(range(super().__len__())):
             img = self.read_image(idx)
@@ -495,7 +521,9 @@ class BalancedDataset(MaskSplitByProfileDataset):
                     # file_name은 'incorrect_mask.jpg' 'mask4.jpg' 이런 형태
                     _file_name, ext = os.path.splitext(file_name)
                     # 파일 확장자 분리
-                    if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
+                    if (
+                        _file_name not in self._file_names
+                    ):  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
                         continue
 
                     img_path = os.path.join(
@@ -545,7 +573,9 @@ class BalancedDataset(MaskSplitByProfileDataset):
 class TestDataset(Dataset):
     """테스트 데이터셋 클래스"""
 
-    def __init__(self, img_paths, resize, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246)):
+    def __init__(
+        self, img_paths, resize, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246)
+    ):
         self.img_paths = img_paths
         self.transform = Compose(
             [
