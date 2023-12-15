@@ -22,4 +22,6 @@ output: test 이미지에 대한 분류 값 (18개 클래스)
     - 베이스라인 코드 업로드   
     - Data Augmentation 추가   
     - Focal Loss 수정   
-    -    
+2023.12.16   
+    - trainer 디렉토리 제작 및 train.py 수정   
+    - Stratified k-fold, WeightedRandomSampler, earlystopping 구현
