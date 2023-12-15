@@ -36,7 +36,7 @@ class SingleTrainer:
     5. WeightedRandomSampler 구현
     """
     
-    def __init__(self, data_dir, model_dir, **args):
+    def __init__(self, data_dir, model_dir, args):
         """
         Args:
             args.seed: random seed (default: 42)
@@ -47,7 +47,7 @@ class SingleTrainer:
         """
         
         self.data_dir = data_dir
-        self.model_dr = model_dir
+        self.model_dir = model_dir
         
         wandb.init(
         project="Boostcamp_Mask_ImageClassification",
@@ -211,6 +211,8 @@ class SingleTrainer:
         # -- model
         model_module = getattr(import_module("model"), args.model)  # default: BaseModel
         model = model_module(num_classes=num_classes).to(device)
+        
+        # -- model 학습 시킬 params 설정. --> 모델에 따라 다르게 설정해주어야 함.
         train_params = [{'params': getattr(model, 'features').parameters(), 'lr': args.lr / 10, 'weight_decay':5e-4},
                     {'params': getattr(model, 'mask_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
                     {'params': getattr(model, 'gender_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
