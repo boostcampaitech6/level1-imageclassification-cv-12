@@ -18,7 +18,7 @@ from torchvision.transforms import (
 )
 
 import albumentations as A
-import albumentations.pytorch.ToTensorV2 as ToTensorV2
+from albumentations.pytorch import ToTensorV2
 
 # https://github.com/mahmoudnafifi/WB_color_augmenter
 # https://colab.research.google.com/drive/1wbUW87MoXabdzDh53YWoOXrvOdjpubQ4?usp=sharing#scrollTo=T226o1Jb64P3
