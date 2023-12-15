@@ -222,7 +222,12 @@ class MaskBaseDataset(Dataset):
         self.aug_prob = aug_prob
 
     def compute_mapping(self):
-        # breakpoint()
+        """
+        White balance를 적용할 때 사용할 mapping을 만들고 불러오는 함수입니다
+
+        Returns:
+            List: white balance mapping을 담은 List를 반환합니다
+        """
         temp = os.path.split(self.data_dir)[0]
         if os.path.exists(os.path.join(temp, "wb_mfs.pickle")):
             with open(os.path.join(temp, "wb_mfs.pickle"), "rb") as handle:
@@ -426,6 +431,115 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
     def split_dataset(self) -> List[Subset]:
         """프로필 기준으로 나눈 데이터셋을 Subset 리스트로 반환하는 메서드"""
         return [Subset(self, indices) for phase, indices in self.indices.items()]
+
+
+class BalancedDataset(MaskSplitByProfileDataset):
+    """
+    MaskSplitByProfileDataset 처럼 사람을 기준으로 train/val을 나누고 있습니다.
+    갯수가 적은 클래스의 사진들을 단순 중복 입력하여 클래스 간 불균형을 완화하려합니다.
+    """
+
+    def __init__(
+        self,
+        data_dir,
+        mean=(0.548, 0.504, 0.479),
+        std=(0.237, 0.247, 0.246),
+        val_ratio=0.2,
+        aug_prob=0.5,
+    ):
+        super().__init__(data_dir, mean, std, val_ratio, aug_prob)
+
+    def compute_mapping(self):
+        """
+        MaskBaseDataset의 compute_mapping 함수를 override 합니다
+        데이터 갯수가 늘어난 상태에서 기존의 wb_mfs.pickle 파일을 사용하면 에러가 발생하므로
+        wb_mfs_c.pickle를 새로 생성합니다
+
+        Returns:
+            List: white balance mapping을 담은 List를 반환합니다
+        """
+        temp = os.path.split(self.data_dir)[0]
+        if os.path.exists(os.path.join(temp, "wb_mfs_c.pickle")):
+            with open(os.path.join(temp, "wb_mfs_c.pickle"), "rb") as handle:
+                mapping_funcs = pickle.load(handle)
+            return mapping_funcs
+
+        print("Computing mapping functions for WB augmenter. " "This process may take time....")
+        mapping_funcs = []
+        for idx in tqdm(range(super().__len__())):
+            img = self.read_image(idx)
+            mfs = self.wb_color_aug.computeMappingFunc(img)
+            mapping_funcs.append(mfs)
+        with open(os.path.join(temp, "wb_mfs_c.pickle"), "wb") as handle:
+            pickle.dump(mapping_funcs, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        return mapping_funcs
+
+    def setup(self):
+        """
+        MaskSplitByProfileDataset의 setup 함수를 override합니다
+        갯수가 적은 클래스의 사진들을 데이터셋에 단순 중복 입력하고 있습니다
+        """
+        profiles = os.listdir(self.data_dir)
+        profiles = [profile for profile in profiles if not profile.startswith(".")]
+        split_profiles = self._split_profile(profiles, self.val_ratio)
+        # split_profiles 는 {"train": train_indices, "val": val_indices} 형태
+
+        cnt = 0
+        for phase, indices in split_profiles.items():
+            # phase는 'train' 또는 'val'
+            for _idx in indices:
+                profile = profiles[_idx]
+                img_folder = os.path.join(self.data_dir, profile)
+                for file_name in os.listdir(img_folder):
+                    # file_name은 'incorrect_mask.jpg' 'mask4.jpg' 이런 형태
+                    _file_name, ext = os.path.splitext(file_name)
+                    # 파일 확장자 분리
+                    if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
+                        continue
+
+                    img_path = os.path.join(
+                        self.data_dir, profile, file_name
+                    )  # (resized_data, 000004_male_Asian_54, mask1.jpg)
+                    mask_label = self._file_names[_file_name]
+                    # mask 착용이면 0, 이상착용이면 1, 미착용이면 2
+
+                    id, gender, race, age = profile.split("_")
+                    gender_label = GenderLabels.from_str(gender)
+                    # 남자 0, 여자 1
+                    age_label = AgeLabels.from_number(age)
+                    # ~29 이면 0, 30~59 이면 1, 60이상이면 2
+
+                    loop_mask = 1
+                    if mask_label != 0:
+                        loop_mask == 5
+                        # 마스크를 안쓴 경우, 마스크를 부적절하게 쓴 경우인 사진들을 5번 중복 입력합니다
+
+                    loop_gender = 1
+                    if gender_label == 0:
+                        loop_gender = 2
+                        # 남성 사진을 2번 중복 입력합니다
+
+                    loop_age = 1
+                    if age_label == 2 and gender_label == 1:
+                        loop_age = 7
+                        # 여성 60대 이상을 7번 중복 입력합니다
+
+                    if age_label == 2 and gender_label == 0:
+                        loop_age = 5
+                        # 남성 60대 이상을 5번 중복 입력합니다
+
+                    for i in range(loop_mask):
+                        for j in range(loop_gender):
+                            for k in range(loop_age):
+                                # 이전 단계에서 결정된 중복 횟수들을 모두 곱한 횟수만큼 중복 입력합니다
+                                self.image_paths.append(img_path)
+                                self.mask_labels.append(mask_label)
+                                self.gender_labels.append(gender_label)
+                                self.age_labels.append(age_label)
+
+                                self.indices[phase].append(cnt)
+                                cnt += 1
 
 
 class TestDataset(Dataset):
