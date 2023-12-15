@@ -236,12 +236,7 @@ class MaskBaseDataset(Dataset):
         self.aug_prob = aug_prob
 
     def compute_mapping(self):
-        """
-        White balance를 적용할 때 사용할 mapping을 만들고 불러오는 함수입니다
-
-        Returns:
-            List: white balance mapping을 담은 List를 반환합니다
-        """
+        # breakpoint()
         temp = os.path.split(self.data_dir)[0]
         if os.path.exists(os.path.join(temp, "wb_mfs.pickle")):
             with open(os.path.join(temp, "wb_mfs.pickle"), "rb") as handle:
