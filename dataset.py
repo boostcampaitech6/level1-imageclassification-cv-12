@@ -242,7 +242,7 @@ class MaskBaseDataset(Dataset):
 
         print("Computing mapping functions for WB augmenter. " "This process may take time....")
         mapping_funcs = []
-        for idx in tqdm(range(super().__len__())):
+        for idx in tqdm(range(self.__len__())):
             img = self.read_image(idx)
             mfs = self.wb_color_aug.computeMappingFunc(img)
             mapping_funcs.append(mfs)
@@ -472,7 +472,7 @@ class BalancedDataset(MaskSplitByProfileDataset):
 
         print("Computing mapping functions for WB augmenter. " "This process may take time....")
         mapping_funcs = []
-        for idx in tqdm(range(super().__len__())):
+        for idx in tqdm(range(self.__len__())):
             img = self.read_image(idx)
             mfs = self.wb_color_aug.computeMappingFunc(img)
             mapping_funcs.append(mfs)
