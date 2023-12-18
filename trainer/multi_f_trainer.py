@@ -211,7 +211,8 @@ class Multi_fTrainer:
         # -- model
         model_module = getattr(import_module("model"), args.model)  # default: BaseModel
         model = model_module(num_classes=num_classes).to(device)
-        train_params = [{'params': getattr(model, 'res_features').parameters(), 'lr': args.lr / 10, 'weight_decay':5e-4},
+        train_params = [{'params': getattr(model, 'backbone1').parameters(), 'lr': args.lr / 10, 'weight_decay':5e-4},
+                    {'params': getattr(model, 'backbone2').parameters(), 'lr': args.lr / 10, 'weight_decay':5e-4},
                     {'params': getattr(model, 'mask_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
                     {'params': getattr(model, 'gender_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
                     {'params': getattr(model, 'age_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4}]
