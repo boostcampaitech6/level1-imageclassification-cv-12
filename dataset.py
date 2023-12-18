@@ -27,6 +27,8 @@ from WBAugmenter import WBEmulator as wbAug
 from tqdm import tqdm
 import pickle
 
+from sklearn.model_selection import train_test_split
+
 
 # 지원되는 이미지 확장자 리스트
 IMG_EXTENSIONS = [
@@ -117,7 +119,7 @@ class CustomAugmentation:
                 A.ElasticTransform(p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
                 A.HorizontalFlip(p=0.5),
                 A.ShiftScaleRotate(p=0.5),
-                A.RandomBrightnessContrast(brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5),
+                #A.RandomBrightnessContrast(brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5),
                 A.GaussNoise(),
                 A.CoarseDropout(
                     max_holes=10,
@@ -226,6 +228,7 @@ class MaskBaseDataset(Dataset):
         self.wb_color_aug = wbAug.WBEmulator()
         self.mapping = self.compute_mapping()
         self.aug_prob = aug_prob
+        self.labels = []
 
     def compute_mapping(self):
         """
@@ -277,6 +280,7 @@ class MaskBaseDataset(Dataset):
                 self.mask_labels.append(mask_label)
                 self.gender_labels.append(gender_label)
                 self.age_labels.append(age_label)
+                self.labels.append(self.encode_multi_class(mask_label, gender_label, age_label))
 
     def calc_statistics(self):
         """데이터셋의 통계치를 계산하는 메서드"""
@@ -307,11 +311,11 @@ class MaskBaseDataset(Dataset):
         age_label = self.get_age_label(index)
         multi_class_label = self.encode_multi_class(mask_label, gender_label, age_label)
 
-        if random.random() < self.aug_prob:
-            mfs = self.mapping[index]
-            ind = np.random.randint(len(mfs))
-            mf = mfs[ind]
-            image = wbAug.changeWB(np.array(image), mf)
+        # if random.random() < self.aug_prob:
+        #     mfs = self.mapping[index]
+        #     ind = np.random.randint(len(mfs))
+        #     mf = mfs[ind]
+        #     image = wbAug.changeWB(np.array(image), mf)
 
         image_transform = self.transform(image)
         return image_transform, multi_class_label
@@ -362,14 +366,29 @@ class MaskBaseDataset(Dataset):
         img_cp = np.clip(img_cp, 0, 255).astype(np.uint8)
         return img_cp
 
-    def split_dataset(self) -> Tuple[Subset, Subset]:
+    def split_dataset(self, startify=True) -> Tuple[Subset, Subset]:
         """데이터셋을 학습과 검증용으로 나누는 메서드
         데이터셋을 train 과 val 로 나눕니다,
         pytorch 내부의 torch.utils.data.random_split 함수를 사용하여 torch.utils.data.Subset 클래스 둘로 나눕니다.
+        
+        sklearn 의 train_test_split 을 이용하여 startify 기능을 구현합니다.
         """
-        n_val = int(len(self) * self.val_ratio)
-        n_train = len(self) - n_val
-        train_set, val_set = random_split(self, [n_train, n_val])
+        
+        if startify:
+            train_idx, valid_idx = train_test_split(
+                np.arrange(len(self.labels)),
+                test_size=self.val_ratio,
+                shuffle=True,
+                startify=self.labels
+            )
+        else:
+            n_val = int(len(self) * self.val_ratio)
+            n_train = len(self) - n_val
+            train_set, val_set = random_split(self, [n_train, n_val])
+        
+        train_set = Subset(self, train_idx)
+        val_set = Subset(self, valid_idx)
+        
         return train_set, val_set
 
 
