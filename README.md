@@ -24,4 +24,8 @@ output: test 이미지에 대한 분류 값 (18개 클래스)
     - Focal Loss 수정   
 2023.12.16   
     - trainer 디렉토리 제작 및 train.py 수정   
-    - Stratified k-fold, WeightedRandomSampler, earlystopping 구현
+    - Stratified k-fold, WeightedRandomSampler, earlystopping 구현   
+2023.12.18   
+    - multi-backbone 모델 구현 및 trainer, inference 업데이트   
+    - 이미지 배경 삭제 기능 구현   
+    - 
