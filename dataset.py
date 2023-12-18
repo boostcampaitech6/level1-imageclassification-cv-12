@@ -137,6 +137,38 @@ class CustomAugmentation:
         return augmented["image"]
 
 
+class CustomAugmentationAge:
+
+    """age backbone의 커스텀 Augmentation을 담당하는 클래스 -> albumentations 사용"""
+
+    def __init__(self, resize, mean, std, **args):
+        self.transform = A.Compose(
+            [
+                A.CenterCrop(height=320, width=256),
+                # A.ElasticTransform(p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
+                A.HorizontalFlip(p=0.5),
+                # A.ShiftScaleRotate(p=0.5),
+                A.RandomBrightnessContrast(brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5),
+                # A.GaussNoise(),
+                A.CoarseDropout(
+                    max_holes=10,
+                    max_height=8,
+                    max_width=8,
+                    min_holes=None,
+                    min_height=5,
+                    min_width=5,
+                ),
+                A.Normalize(mean=mean, std=std),
+                ToTensorV2(),
+            ]
+        )
+
+    def __call__(self, img):
+        augmented = self.transform(image=np.array(img).astype(np.uint8))
+
+        return augmented["image"]
+
+
 class MaskLabels(int, Enum):
     """마스크 라벨을 나타내는 Enum 클래스"""
 
@@ -254,7 +286,7 @@ class MaskBaseDataset(Dataset):
         """데이터 디렉토리로부터 이미지 경로와 라벨을 설정하는 메서드"""
         profiles = os.listdir(self.data_dir)
         for profile in profiles:
-            if profile.startswith(".") or profile.endswith('pickle'):  # "." 로 시작하는 파일은 무시합니다
+            if profile.startswith(".") or profile.endswith("pickle"):  # "." 로 시작하는 파일은 무시합니다
                 continue
 
             img_folder = os.path.join(self.data_dir, profile)
@@ -411,7 +443,7 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
             for _idx in indices:
                 profile = profiles[_idx]
                 img_folder = os.path.join(self.data_dir, profile)
-                if img_folder.endswith('pickle'):
+                if img_folder.endswith("pickle"):
                     continue
                 for file_name in os.listdir(img_folder):
                     _file_name, ext = os.path.splitext(file_name)
@@ -498,7 +530,7 @@ class BalancedDataset(MaskSplitByProfileDataset):
             for _idx in indices:
                 profile = profiles[_idx]
                 img_folder = os.path.join(self.data_dir, profile)
-                if img_folder.endswith('pickle'):
+                if img_folder.endswith("pickle"):
                     continue
                 for file_name in os.listdir(img_folder):
                     # file_name은 'incorrect_mask.jpg' 'mask4.jpg' 이런 형태
@@ -549,6 +581,50 @@ class BalancedDataset(MaskSplitByProfileDataset):
 
                                 self.indices[phase].append(cnt)
                                 cnt += 1
+
+
+class MultitransformBalancedDataset(BalancedDataset):
+    """
+    MaskSplitByProfileDataset 처럼 사람을 기준으로 train/val을 나누고 있습니다.
+    갯수가 적은 클래스의 사진들을 단순 중복 입력하여 클래스 간 불균형을 완화하려합니다.
+    """
+
+    def __init__(
+        self,
+        data_dir,
+        mean=(0.548, 0.504, 0.479),
+        std=(0.237, 0.247, 0.246),
+        val_ratio=0.2,
+        aug_prob=0.5,
+    ):
+        super().__init__(data_dir, mean, std, val_ratio, aug_prob)
+        self.transform2 = None
+
+    def set_transform(self, transform, transform2):
+        """변환(transform)을 설정하는 메서드"""
+        self.transform = transform
+        self.transform2 = transform2
+
+    def __getitem__(self, index):
+        """인덱스에 해당하는 데이터를 가져오는 메서드"""
+        assert self.transform is not None, ".set_tranform 메소드를 이용하여 transform 을 주입해주세요"
+        assert self.transform2 is not None, ".set_tranform 메소드를 이용하여 transform2 을 주입해주세요"
+
+        image = self.read_image(index)
+        mask_label = self.get_mask_label(index)
+        gender_label = self.get_gender_label(index)
+        age_label = self.get_age_label(index)
+        multi_class_label = self.encode_multi_class(mask_label, gender_label, age_label)
+
+        if random.random() < self.aug_prob:
+            mfs = self.mapping[index]
+            ind = np.random.randint(len(mfs))
+            mf = mfs[ind]
+            image = wbAug.changeWB(np.array(image), mf)
+
+        image_transform = self.transform(image)
+        image_transform2 = self.transform2(image)
+        return image_transform, image_transform2, multi_class_label
 
 
 class TestDataset(Dataset):
