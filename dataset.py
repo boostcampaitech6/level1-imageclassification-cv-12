@@ -113,7 +113,6 @@ class CustomAugmentation:
         self.transform = A.Compose(
             [
                 A.CenterCrop(height=320, width=256),
-                A.RandomCrop(height=resize[0], width=resize[1], p=1.0),
                 A.ElasticTransform(p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
                 A.HorizontalFlip(p=0.5),
                 A.ShiftScaleRotate(p=0.5),
@@ -255,7 +254,7 @@ class MaskBaseDataset(Dataset):
         """데이터 디렉토리로부터 이미지 경로와 라벨을 설정하는 메서드"""
         profiles = os.listdir(self.data_dir)
         for profile in profiles:
-            if profile.startswith("."):  # "." 로 시작하는 파일은 무시합니다
+            if profile.startswith(".") or profile.endswith('pickle'):  # "." 로 시작하는 파일은 무시합니다
                 continue
 
             img_folder = os.path.join(self.data_dir, profile)
@@ -412,6 +411,8 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
             for _idx in indices:
                 profile = profiles[_idx]
                 img_folder = os.path.join(self.data_dir, profile)
+                if img_folder.endswith('pickle'):
+                    continue
                 for file_name in os.listdir(img_folder):
                     _file_name, ext = os.path.splitext(file_name)
                     if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
@@ -497,6 +498,8 @@ class BalancedDataset(MaskSplitByProfileDataset):
             for _idx in indices:
                 profile = profiles[_idx]
                 img_folder = os.path.join(self.data_dir, profile)
+                if img_folder.endswith('pickle'):
+                    continue
                 for file_name in os.listdir(img_folder):
                     # file_name은 'incorrect_mask.jpg' 'mask4.jpg' 이런 형태
                     _file_name, ext = os.path.splitext(file_name)
