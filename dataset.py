@@ -113,6 +113,7 @@ class CustomAugmentation:
         self.transform = A.Compose(
             [
                 A.CenterCrop(height=320, width=256),
+                A.Resize(*resize, interpolation=0),
                 A.ElasticTransform(p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
                 A.HorizontalFlip(p=0.5),
                 A.ShiftScaleRotate(p=0.5),
