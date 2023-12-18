@@ -31,7 +31,8 @@ def load_model(saved_model, num_classes, device):
 
     # 모델 가중치를 로드한다.
     model_path = os.path.join(saved_model, "best.pth")
-    model.load_state_dict(torch.load(model_path, map_location=device))
+    checkpoint = torch.load(model_path, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
 
     return model
 
@@ -82,8 +83,11 @@ def inference(data_dir, model_dir, output_dir, args):
     with torch.no_grad():
         for idx, images in enumerate(loader):
             images = images.to(device)
-            pred = model(images)
-            pred = pred.argmax(dim=-1)
+            _, _, mask_output, gender_output, age_output = model(images)
+            mask_pred = torch.argmax(mask_output, dim=-1)
+            gender_pred = torch.argmax(gender_output, dim=-1)
+            age_pred = torch.argmax(age_output, dim=-1)
+            pred = mask_pred * 6 + gender_pred * 3 + age_pred
             preds.extend(pred.cpu().numpy())
 
     # 예측 결과를 데이터프레임에 저장하고 csv 파일로 출력한다.

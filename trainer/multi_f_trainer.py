@@ -26,7 +26,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning) 
 
 
-class MultiTrainer:
+class Multi_fTrainer:
     """
     1. single classifier train
     2. wandb 연결
@@ -211,7 +211,7 @@ class MultiTrainer:
         # -- model
         model_module = getattr(import_module("model"), args.model)  # default: BaseModel
         model = model_module(num_classes=num_classes).to(device)
-        train_params = [{'params': getattr(model, 'features').parameters(), 'lr': args.lr / 10, 'weight_decay':5e-4},
+        train_params = [{'params': getattr(model, 'res_features').parameters(), 'lr': args.lr / 10, 'weight_decay':5e-4},
                     {'params': getattr(model, 'mask_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
                     {'params': getattr(model, 'gender_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
                     {'params': getattr(model, 'age_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4}]
@@ -259,6 +259,7 @@ class MultiTrainer:
             gender_matches = 0
             age_matches = 0
             
+            
             for idx, train_batch in enumerate(train_loader):
                 inputs, labels = train_batch
                 inputs = inputs.to(device)
@@ -267,7 +268,7 @@ class MultiTrainer:
 
                 optimizer.zero_grad()
 
-                mask_output, gender_output, age_output = model(inputs)
+                _, _, mask_output, gender_output, age_output = model(inputs)
                 
                 if args.criterion == 'focal':
                     mask_loss = m_criterion(mask_output, mask_label)
@@ -282,8 +283,13 @@ class MultiTrainer:
                 # gender_loss.backward(retain_graph=True)
                 # age_loss.backward()
                 
-                sum_loss = mask_loss + gender_loss + 1.5 * age_loss
-                sum_loss.backward()
+                # sum_loss = mask_loss + gender_loss + 1.5 * age_loss
+                # sum_loss.backward()
+                
+                mg_loss = mask_loss + gender_loss
+                
+                mg_loss.backward()
+                age_loss.backward()
                 
                 mask_pred = torch.argmax(mask_output, dim=-1)
                 gender_pred = torch.argmax(gender_output, dim=-1)
@@ -294,7 +300,8 @@ class MultiTrainer:
                 
                 optimizer.step()
 
-                loss_value += (sum_loss).item()
+                #loss_value += (sum_loss).item()
+                loss_value += (mg_loss + age_loss).item()
                 m_value += mask_loss.item()
                 g_value += gender_loss.item()
                 a_value += age_loss.item()
@@ -353,7 +360,7 @@ class MultiTrainer:
                     mask_label, gender_label, age_label = dataset.decode_multi_class(labels)
 
                     #outs = model(inputs)
-                    mask_output, gender_output, age_output = model(inputs)
+                    mg_features, a_features, mask_output, gender_output, age_output = model(inputs)
                     mask_pred = torch.argmax(mask_output, dim=-1)
                     gender_pred = torch.argmax(gender_output, dim=-1)
                     age_pred = torch.argmax(age_output, dim=-1)
@@ -369,9 +376,11 @@ class MultiTrainer:
                         gender_loss = criterion(gender_output, gender_label)
                         age_loss = criterion(age_output, age_label)
                         
-                    sum_loss = mask_loss + gender_loss + 1.5 * age_loss
+                    #sum_loss = mask_loss + gender_loss + 1.5 * age_loss
+                    mg_loss = mask_loss + gender_loss
                     
-                    loss_item = (sum_loss).item()
+                    #loss_item = (sum_loss).item()
+                    loss_item = (mg_loss + age_loss).item()
                     acc_item = (labels == preds).sum().item()
                     val_loss_items.append(loss_item)
                     val_acc_items.append(acc_item)
@@ -403,6 +412,7 @@ class MultiTrainer:
                     print(
                         f"New best model for val accuracy : {val_acc:4.2%}! saving the best model.."
                     )
+                
                     state = {
                         'epoch': epoch,
                         'model_state_dict': model.module.state_dict(),  # 모델의 state_dict 저장
