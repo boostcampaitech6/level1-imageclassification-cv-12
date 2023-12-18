@@ -189,7 +189,7 @@ class MultiFeatureLabelModel(nn.Module):
         )
 
         self.age_classifier = nn.Sequential(
-            nn.Linear(resnet.fc.in_features, 1024),
+            nn.Linear(2560, 1024),
             nn.LeakyReLU(0.1),
             nn.Dropout(),
             nn.Linear(1024, 512),

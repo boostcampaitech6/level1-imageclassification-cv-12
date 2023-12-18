@@ -9,6 +9,9 @@ from torch.utils.data import DataLoader
 
 from dataset import TestDataset, MaskBaseDataset
 
+import datetime
+from pytz import timezone
+
 
 def load_model(saved_model, num_classes, device):
     """
@@ -92,7 +95,8 @@ def inference(data_dir, model_dir, output_dir, args):
 
     # 예측 결과를 데이터프레임에 저장하고 csv 파일로 출력한다.
     info["ans"] = preds
-    save_path = os.path.join(output_dir, f"output.csv")
+    time_now = str(datetime.datetime.now(timezone('Asia/Seoul')))[:19]
+    save_path = os.path.join(output_dir, f"output_{time_now}.csv")
     info.to_csv(save_path, index=False)
     print(f"Inference Done! Inference result saved at {save_path}")
 
