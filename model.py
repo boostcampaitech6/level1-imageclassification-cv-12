@@ -159,9 +159,9 @@ class MultiFeatureLabelModel(nn.Module):
         
         # pretrained model -> 각 모델의 마지막 fc layer 를 빼고 차원 수 맞춰주는 작업 필요
         resnet = resnet101(pretrained=True)
-        #efficientnet = efficientnet_b7(pretrained=True)
+        efficientnet = efficientnet_b7(pretrained=True)
         self.backbone1 = nn.Sequential(*list(resnet.children())[:-1])
-        self.backbone2 = nn.Sequential(*list(resnet.children())[:-1])
+        self.backbone2 = nn.Sequential(*list(efficientnet.children())[:-1])
         
         # # Freeze pretrained weights
         # for param in self.features.parameters():
@@ -220,7 +220,7 @@ class MultiFeatureLabelModel(nn.Module):
         age_output = self.age_classifier(a_features)
 
 
-        return mg_features, a_features, mask_output, gender_output, age_output
+        return mask_output, gender_output, age_output
     
     def initialize_weights(self, model):
         """
