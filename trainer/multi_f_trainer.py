@@ -268,7 +268,7 @@ class Multi_fTrainer:
 
                 optimizer.zero_grad()
 
-                _, _, mask_output, gender_output, age_output = model(inputs)
+                mask_output, gender_output, age_output = model(inputs)
                 
                 if args.criterion == 'focal':
                     mask_loss = m_criterion(mask_output, mask_label)
@@ -360,7 +360,7 @@ class Multi_fTrainer:
                     mask_label, gender_label, age_label = dataset.decode_multi_class(labels)
 
                     #outs = model(inputs)
-                    mg_features, a_features, mask_output, gender_output, age_output = model(inputs)
+                    mask_output, gender_output, age_output = model(inputs)
                     mask_pred = torch.argmax(mask_output, dim=-1)
                     gender_pred = torch.argmax(gender_output, dim=-1)
                     age_pred = torch.argmax(age_output, dim=-1)

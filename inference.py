@@ -83,7 +83,7 @@ def inference(data_dir, model_dir, output_dir, args):
     with torch.no_grad():
         for idx, images in enumerate(loader):
             images = images.to(device)
-            _, _, mask_output, gender_output, age_output = model(images)
+            mask_output, gender_output, age_output = model(images)
             mask_pred = torch.argmax(mask_output, dim=-1)
             gender_pred = torch.argmax(gender_output, dim=-1)
             age_pred = torch.argmax(age_output, dim=-1)
