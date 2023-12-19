@@ -211,12 +211,11 @@ class MaskBaseDataset(Dataset):
         self.calc_statistics()  # 통계시 계산 (평균 및 표준 편차)
         self.labels = []
 
-
     def setup(self):
         """데이터 디렉토리로부터 이미지 경로와 라벨을 설정하는 메서드"""
         profiles = os.listdir(self.data_dir)
         for profile in profiles:
-            if profile.startswith(".") or profile.endswith('pickle'):  # "." 로 시작하는 파일은 무시합니다
+            if profile.startswith(".") or profile.endswith("pickle"):  # "." 로 시작하는 파일은 무시합니다
                 continue
 
             img_folder = os.path.join(self.data_dir, profile)
@@ -248,7 +247,7 @@ class MaskBaseDataset(Dataset):
             sums = []
             squared = []
             for image_path in self.image_paths[:3000]:
-                image = np.array(Image.open(image_path)).astype(np.int32)
+                image = np.array(Image.open(image_path).convert("RGB")).astype(np.int32)
                 sums.append(image.mean(axis=(0, 1)))
                 squared.append((image**2).mean(axis=(0, 1)))
 
@@ -291,7 +290,7 @@ class MaskBaseDataset(Dataset):
     def read_image(self, index):
         """인덱스에 해당하는 이미지를 읽는 메서드"""
         image_path = self.image_paths[index]
-        return Image.open(image_path).convert('RGB')
+        return Image.open(image_path).convert("RGB")
 
     @staticmethod
     def encode_multi_class(mask_label, gender_label, age_label) -> int:
@@ -318,30 +317,26 @@ class MaskBaseDataset(Dataset):
         img_cp = np.clip(img_cp, 0, 255).astype(np.uint8)
         return img_cp
 
-
     def split_dataset(self, startify=True) -> Tuple[Subset, Subset]:
         """데이터셋을 학습과 검증용으로 나누는 메서드
         데이터셋을 train 과 val 로 나눕니다,
         pytorch 내부의 torch.utils.data.random_split 함수를 사용하여 torch.utils.data.Subset 클래스 둘로 나눕니다.
-        
+
         sklearn 의 train_test_split 을 이용하여 startify 기능을 구현합니다.
         """
-        
+
         if startify:
             train_idx, valid_idx = train_test_split(
-                np.arrange(len(self.labels)),
-                test_size=self.val_ratio,
-                shuffle=True,
-                startify=self.labels
+                np.arrange(len(self.labels)), test_size=self.val_ratio, shuffle=True, startify=self.labels
             )
         else:
             n_val = int(len(self) * self.val_ratio)
             n_train = len(self) - n_val
             train_set, val_set = random_split(self, [n_train, n_val])
-        
+
         train_set = Subset(self, train_idx)
         val_set = Subset(self, valid_idx)
-        
+
         return train_set, val_set
 
 
@@ -355,8 +350,8 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
     def __init__(
         self,
         data_dir,
-        mean=(0.548, 0.504, 0.479),
-        std=(0.237, 0.247, 0.246),
+        mean=(0.20696366, 0.16345932, 0.15741424),
+        std=(0.2702278, 0.22756001, 0.21942027),
         val_ratio=0.2,
         aug_prob=0.5,
     ):
@@ -367,10 +362,24 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
     def _split_profile(profiles, val_ratio):
         """프로필을 학습과 검증용으로 나누는 메서드"""
         length = len(profiles)
-        n_val = int(length * val_ratio)
+        # n_val = int(length * val_ratio)
 
-        val_indices = set(random.sample(range(length), k=n_val))
-        train_indices = set(range(length)) - val_indices
+        def encode_profile_label(profile):
+            id, gender, race, age = profile.split("_")
+            gender_label = GenderLabels.from_str(gender)
+            age_label = AgeLabels.from_number(age)
+            profile_label = gender_label * 3 + age_label
+            return profile_label
+
+        profile_labels = [encode_profile_label(profile) for profile in profiles]
+
+        # val_indices = set(random.sample(range(length), k=n_val))
+        # train_indices = set(range(length)) - val_indices
+
+        train_indices, val_indices = train_test_split(
+            np.arrange(length), test_size=val_ratio, shuffle=True, startify=profile_labels
+        )
+
         return {"train": train_indices, "val": val_indices}
 
     def setup(self):
@@ -384,7 +393,7 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
             for _idx in indices:
                 profile = profiles[_idx]
                 img_folder = os.path.join(self.data_dir, profile)
-                if img_folder.endswith('pickle'):
+                if img_folder.endswith("pickle"):
                     continue
                 for file_name in os.listdir(img_folder):
                     _file_name, ext = os.path.splitext(file_name)
@@ -422,13 +431,12 @@ class BalancedDataset(MaskSplitByProfileDataset):
     def __init__(
         self,
         data_dir,
-        mean=(0.548, 0.504, 0.479),
-        std=(0.237, 0.247, 0.246),
+        mean=(0.20696366, 0.16345932, 0.15741424),
+        std=(0.2702278, 0.22756001, 0.21942027),
         val_ratio=0.2,
         aug_prob=0.5,
     ):
         super().__init__(data_dir, mean, std, val_ratio, aug_prob)
-        
 
     def setup(self):
         """
@@ -446,7 +454,7 @@ class BalancedDataset(MaskSplitByProfileDataset):
             for _idx in indices:
                 profile = profiles[_idx]
                 img_folder = os.path.join(self.data_dir, profile)
-                if img_folder.endswith('pickle'):
+                if img_folder.endswith("pickle"):
                     continue
                 for file_name in os.listdir(img_folder):
                     # file_name은 'incorrect_mask.jpg' 'mask4.jpg' 이런 형태
@@ -472,37 +480,26 @@ class BalancedDataset(MaskSplitByProfileDataset):
                         loop_mask == 5
                         # 마스크를 안쓴 경우, 마스크를 부적절하게 쓴 경우인 사진들을 5번 중복 입력합니다
 
-                    loop_gender = 1
-                    if gender_label == 0:
-                        loop_gender = 2
-                        # 남성 사진을 2번 중복 입력합니다
-
-                    loop_age = 1
-                    if age_label == 2 and gender_label == 1:
-                        loop_age = 7
-                        # 여성 60대 이상을 7번 중복 입력합니다
-
-                    if age_label == 2 and gender_label == 0:
-                        loop_age = 5
-                        # 남성 60대 이상을 5번 중복 입력합니다
-
                     for i in range(loop_mask):
-                        for j in range(loop_gender):
-                            for k in range(loop_age):
-                                # 이전 단계에서 결정된 중복 횟수들을 모두 곱한 횟수만큼 중복 입력합니다
-                                self.image_paths.append(img_path)
-                                self.mask_labels.append(mask_label)
-                                self.gender_labels.append(gender_label)
-                                self.age_labels.append(age_label)
+                        self.image_paths.append(img_path)
+                        self.mask_labels.append(mask_label)
+                        self.gender_labels.append(gender_label)
+                        self.age_labels.append(age_label)
 
-                                self.indices[phase].append(cnt)
-                                cnt += 1
+                        self.indices[phase].append(cnt)
+                        cnt += 1
 
 
 class TestDataset(Dataset):
     """테스트 데이터셋 클래스"""
 
-    def __init__(self, img_paths, resize, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246)):
+    def __init__(
+        self,
+        img_paths,
+        resize,
+        mean=(0.20696366, 0.16345932, 0.15741424),
+        std=(0.2702278, 0.22756001, 0.21942027),
+    ):
         self.img_paths = img_paths
         self.transform = Compose(
             [
@@ -514,7 +511,7 @@ class TestDataset(Dataset):
 
     def __getitem__(self, index):
         """인덱스에 해당하는 데이터를 가져오는 메서드"""
-        image = Image.open(self.img_paths[index]).convert('RGB')
+        image = Image.open(self.img_paths[index]).convert("RGB")
 
         if self.transform:
             image = self.transform(image)

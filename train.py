@@ -21,12 +21,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Data and model checkpoints directories
-    parser.add_argument(
-        "--seed", type=int, default=42, help="random seed (default: 42)"
-    )
-    parser.add_argument(
-        "--epochs", type=int, default=1, help="number of epochs to train (default: 1)"
-    )
+    parser.add_argument("--seed", type=int, default=42, help="random seed (default: 42)")
+    parser.add_argument("--epochs", type=int, default=1, help="number of epochs to train (default: 1)")
     parser.add_argument(
         "--trainer",
         type=str,
@@ -76,15 +72,9 @@ if __name__ == "__main__":
         default=1000,
         help="input batch size for validing (default: 1000)",
     )
-    parser.add_argument(
-        "--model", type=str, default="BaseModel", help="model type (default: BaseModel)"
-    )
-    parser.add_argument(
-        "--optimizer", type=str, default="SGD", help="optimizer type (default: SGD)"
-    )
-    parser.add_argument(
-        "--lr", type=float, default=1e-3, help="learning rate (default: 1e-3)"
-    )
+    parser.add_argument("--model", type=str, default="BaseModel", help="model type (default: BaseModel)")
+    parser.add_argument("--optimizer", type=str, default="SGD", help="optimizer type (default: SGD)")
+    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate (default: 1e-3)")
     parser.add_argument(
         "--val_ratio",
         type=float,
@@ -109,9 +99,7 @@ if __name__ == "__main__":
         default=20,
         help="how many batches to wait before logging training status",
     )
-    parser.add_argument(
-        "--name", default="exp", help="model save at {SM_MODEL_DIR}/{name}"
-    )
+    parser.add_argument("--name", default="exp", help="model save at {SM_MODEL_DIR}/{name}")
 
     # Container environment
     parser.add_argument(
@@ -119,9 +107,7 @@ if __name__ == "__main__":
         type=str,
         default=os.environ.get("SM_CHANNEL_TRAIN", "/data/ephemeral/home/train/images"),
     )
-    parser.add_argument(
-        "--model_dir", type=str, default=os.environ.get("SM_MODEL_DIR", "./model")
-    )
+    parser.add_argument("--model_dir", type=str, default=os.environ.get("SM_MODEL_DIR", "./model"))
 
     args = parser.parse_args()
     print(args)
@@ -132,18 +118,16 @@ if __name__ == "__main__":
         trainer_name = "skf_" + args.trainer.lower()
     else:
         trainer_name = args.trainer.lower()
-    train_module = getattr(import_module(f"trainer.{trainer_name}_trainer"), args.trainer+"Trainer")
+    train_module = getattr(import_module(f"trainer.{trainer_name}_trainer"), args.trainer + "Trainer")
     print(f" Use {trainer_name}_trainer ...")
-    trainer = train_module(
-        data_dir, model_dir, args
-    )
-    
-    start_time = datetime.datetime.now(timezone('Asia/Seoul'))
+    trainer = train_module(data_dir, model_dir, args)
+
+    start_time = datetime.datetime.now(timezone("Asia/Seoul"))
     print(f"학습 시작 : {str(start_time)[:19]}")
-    
+
     trainer.train(args)
-    
-    end_time = datetime.datetime.now(timezone('Asia/Seoul'))
+
+    end_time = datetime.datetime.now(timezone("Asia/Seoul"))
     print(f"학습 끝 : {str(end_time)[:19]}")
 
     # 학습 소요 시간 계산 및 출력
