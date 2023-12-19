@@ -232,12 +232,7 @@ class Multi_fTrainer:
             criterion = create_criterion(args.criterion)
         opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
         optimizer = opt_module(train_params)
-        # optimizer = opt_module(
-        #     filter(lambda p: p.requires_grad, model.parameters()),
-        #     lr=args.lr,
-        #     weight_decay=5e-4,
-        # )
-        scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
+        scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.1)
 
         # -- logging
         logger = SummaryWriter(log_dir=save_dir)
@@ -280,29 +275,24 @@ class Multi_fTrainer:
                     gender_loss = criterion(gender_output, gender_label)
                     age_loss = criterion(age_output, age_label)
                 
-                # mask_loss.backward(retain_graph=True)
-                # gender_loss.backward(retain_graph=True)
-                # age_loss.backward()
+                sum_loss = mask_loss + gender_loss + age_loss
                 
-                # sum_loss = mask_loss + gender_loss + 1.5 * age_loss
-                # sum_loss.backward()
+                # weighted summation loss update 방식
+                #sum_loss.backward()
                 
-                mg_loss = mask_loss + gender_loss
-                
-                mg_loss.backward()
+                # coordinate loss update 방식
+                mask_loss.backward()
+                gender_loss.backward(retain_graph=True)
                 age_loss.backward()
                 
                 mask_pred = torch.argmax(mask_output, dim=-1)
                 gender_pred = torch.argmax(gender_output, dim=-1)
                 age_pred = torch.argmax(age_output, dim=-1)
                 preds = mask_pred * 6 + gender_pred * 3 + age_pred
-                #loss = criterion(outs, labels)
-                #loss.backward()
                 
                 optimizer.step()
 
-                #loss_value += (sum_loss).item()
-                loss_value += (mg_loss + age_loss).item()
+                loss_value += (sum_loss).item()
                 m_value += mask_loss.item()
                 g_value += gender_loss.item()
                 a_value += age_loss.item()
@@ -360,13 +350,11 @@ class Multi_fTrainer:
                     labels = labels.to(device)
                     mask_label, gender_label, age_label = dataset.decode_multi_class(labels)
 
-                    #outs = model(inputs)
                     mask_output, gender_output, age_output = model(inputs)
                     mask_pred = torch.argmax(mask_output, dim=-1)
                     gender_pred = torch.argmax(gender_output, dim=-1)
                     age_pred = torch.argmax(age_output, dim=-1)
                     preds = mask_pred * 6 + gender_pred * 3 + age_pred
-                    #preds = torch.argmax(outs, dim=-1)
                     
                     if args.criterion == 'focal':
                         mask_loss = m_criterion(mask_output, mask_label)
@@ -377,11 +365,9 @@ class Multi_fTrainer:
                         gender_loss = criterion(gender_output, gender_label)
                         age_loss = criterion(age_output, age_label)
                         
-                    #sum_loss = mask_loss + gender_loss + 1.5 * age_loss
-                    mg_loss = mask_loss + gender_loss
+                    sum_loss = mask_loss + gender_loss + age_loss
                     
-                    #loss_item = (sum_loss).item()
-                    loss_item = (mg_loss + age_loss).item()
+                    loss_item = (sum_loss).item()
                     acc_item = (labels == preds).sum().item()
                     val_loss_items.append(loss_item)
                     val_acc_items.append(acc_item)
@@ -416,7 +402,7 @@ class Multi_fTrainer:
                 
                     state = {
                         'epoch': epoch,
-                        'model_state_dict': model.module.state_dict(),  # 모델의 state_dict 저장
+                        'model_state_dict': model.module.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
                         'scheduler_state_dict': scheduler.state_dict()
                     }
@@ -428,7 +414,7 @@ class Multi_fTrainer:
                     
                 state = {
                     'epoch': epoch,
-                    'model_state_dict': model.module.state_dict(),  # 모델의 state_dict 저장
+                    'model_state_dict': model.module.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'scheduler_state_dict': scheduler.state_dict()
                 }
