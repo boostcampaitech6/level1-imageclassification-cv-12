@@ -24,34 +24,55 @@ import torch.nn.functional as F
 #             reduction=self.reduction,
 #         )
 
+
 ## - 가중치 반영한 Focal Loss
 class FocalLoss(nn.Module):
+    def __init__(self, weight=None, gamma=2.0, reduction="mean"):
+        nn.Module.__init__(self)
+        self.weight = weight
+        self.gamma = gamma
+        self.reduction = reduction
+
+    def forward(self, input_tensor, target_tensor):
+        log_prob = F.log_softmax(input_tensor, dim=-1)
+        prob = torch.exp(log_prob)
+        return F.nll_loss(
+            ((1 - prob) ** self.gamma) * log_prob,
+            target_tensor,
+            weight=self.weight,
+            reduction=self.reduction,
+        )
+
+
+class FocalLoss2(nn.Module):
     """
     클래스별 가중치를 더 쉽게 반영하도록 한 FocalLoss
     [백광현]
     """
-    def __init__(self, gamma=2.0, alpha=None, reduction='mean'):
-        super(FocalLoss, self).__init__()
+
+    def __init__(self, gamma=2.0, alpha=None, reduction="mean"):
+        super().__init__()
         self.gamma = gamma
         self.alpha = alpha
         self.reduction = reduction
 
     def forward(self, inputs, targets):
-        ce_loss = F.cross_entropy(inputs, targets, reduction='none')
+        ce_loss = F.cross_entropy(inputs, targets, reduction="none")
         pt = torch.exp(-ce_loss)
         focal_loss = (1 - pt) ** self.gamma * ce_loss
 
         if self.alpha is not None:
             focal_loss = self.alpha[targets] * focal_loss
 
-        if self.reduction == 'mean':
+        if self.reduction == "mean":
             return torch.mean(focal_loss)
-        elif self.reduction == 'sum':
+        elif self.reduction == "sum":
             return torch.sum(focal_loss)
-        elif self.reduction == 'none':
+        elif self.reduction == "none":
             return focal_loss
         else:
             raise ValueError("Unsupported reduction type. Use 'mean', 'sum', or 'none'.")
+
 
 # Label Smoothing Loss 구현
 # 모델이 너무 자신만만하게 예측하는 것을 방지하기 위해 사용된다.

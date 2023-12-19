@@ -9,6 +9,10 @@ from torch.utils.data import DataLoader
 
 from dataset import TestDataset, MaskBaseDataset
 
+import datetime
+
+from pytz import timezone
+
 
 def load_model(saved_model, num_classes, device):
     """
@@ -32,7 +36,7 @@ def load_model(saved_model, num_classes, device):
     # 모델 가중치를 로드한다.
     model_path = os.path.join(saved_model, "best.pth")
     checkpoint = torch.load(model_path, map_location=device)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(checkpoint["model_state_dict"])
 
     return model
 
@@ -90,9 +94,11 @@ def inference(data_dir, model_dir, output_dir, args):
             pred = mask_pred * 6 + gender_pred * 3 + age_pred
             preds.extend(pred.cpu().numpy())
 
+    time_now = str(datetime.datetime.now(timezone("Asia/Seoul")))[:19]
+
     # 예측 결과를 데이터프레임에 저장하고 csv 파일로 출력한다.
     info["ans"] = preds
-    save_path = os.path.join(output_dir, f"output.csv")
+    save_path = os.path.join(output_dir, f"output_{time_now}.csv")
     info.to_csv(save_path, index=False)
     print(f"Inference Done! Inference result saved at {save_path}")
 
@@ -112,18 +118,16 @@ if __name__ == "__main__":
         "--resize",
         nargs=2,
         type=int,
-        default=(96, 128),
-        help="resize size for image when you trained (default: (96, 128))",
+        default=(128, 96),
+        help="resize size for image when you trained (default: (128, 96))",
     )
-    parser.add_argument(
-        "--model", type=str, default="BaseModel", help="model type (default: BaseModel)"
-    )
+    parser.add_argument("--model", type=str, default="BaseModel", help="model type (default: BaseModel)")
 
     # 컨테이너 환경 변수
     parser.add_argument(
         "--data_dir",
         type=str,
-        default=os.environ.get("SM_CHANNEL_EVAL", "/opt/ml/input/data/eval"),
+        default=os.environ.get("SM_CHANNEL_EVAL", "/data/ephemeral/home/eval"),
     )
     parser.add_argument(
         "--model_dir",
