@@ -355,8 +355,8 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
     def __init__(
         self,
         data_dir,
-        mean=(0.548, 0.504, 0.479),
-        std=(0.237, 0.247, 0.246),
+        mean=(0.20696366, 0.16345932, 0.15741424),
+        std=(0.2702278, 0.22756001, 0.21942027),
         val_ratio=0.2,
         aug_prob=0.5,
     ):
@@ -422,8 +422,8 @@ class BalancedDataset(MaskSplitByProfileDataset):
     def __init__(
         self,
         data_dir,
-        mean=(0.548, 0.504, 0.479),
-        std=(0.237, 0.247, 0.246),
+        mean=(0.20696366, 0.16345932, 0.15741424),
+        std=(0.2702278, 0.22756001, 0.21942027),
         val_ratio=0.2,
         aug_prob=0.5,
     ):
@@ -502,7 +502,7 @@ class BalancedDataset(MaskSplitByProfileDataset):
 class TestDataset(Dataset):
     """테스트 데이터셋 클래스"""
 
-    def __init__(self, img_paths, resize, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246)):
+    def __init__(self, img_paths, resize, mean=(0.20696366, 0.16345932, 0.15741424), std=(0.2702278, 0.22756001, 0.21942027),):
         self.img_paths = img_paths
         self.transform = Compose(
             [
