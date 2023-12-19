@@ -16,14 +16,9 @@ from torchvision.transforms import (
     CenterCrop,
     ColorJitter,
 )
-
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-# https://github.com/mahmoudnafifi/WB_color_augmenter
-# https://colab.research.google.com/drive/1wbUW87MoXabdzDh53YWoOXrvOdjpubQ4?usp=sharing#scrollTo=T226o1Jb64P3
-# Mahmoud Afifi and Michael S. Brown. What Else Can Fool Deep Learning? Addressing Color Constancy Errors on Deep Neural Network Performance. International Conference on Computer Vision (ICCV), 2019.
-from WBAugmenter import WBEmulator as wbAug
 from tqdm import tqdm
 import pickle
 
@@ -116,19 +111,8 @@ class CustomAugmentation:
             [
                 A.CenterCrop(height=320, width=256),
                 A.Resize(*resize, interpolation=0),
-                A.ElasticTransform(p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
-                A.HorizontalFlip(p=0.5),
-                A.ShiftScaleRotate(p=0.5),
-                #A.RandomBrightnessContrast(brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5),
-                A.GaussNoise(),
-                A.CoarseDropout(
-                    max_holes=10,
-                    max_height=8,
-                    max_width=8,
-                    min_holes=None,
-                    min_height=5,
-                    min_width=5,
-                ),
+                A.ShiftScaleRotate(p=0.5, rotate_limit=30),
+                A.RandomBrightnessContrast(brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5),
                 A.Normalize(mean=mean, std=std),
                 ToTensorV2(),
             ]
@@ -181,9 +165,9 @@ class AgeLabels(int, Enum):
         except Exception:
             raise ValueError(f"Age value should be numeric, {value}")
 
-        if value < 30:
+        if value < 27:
             return cls.YOUNG
-        elif value < 60:
+        elif value < 56:
             return cls.MIDDLE
         else:
             return cls.OLD
@@ -212,8 +196,8 @@ class MaskBaseDataset(Dataset):
     def __init__(
         self,
         data_dir,
-        mean=(0.548, 0.504, 0.479),
-        std=(0.237, 0.247, 0.246),
+        mean=(0.20696366, 0.16345932, 0.15741424),
+        std=(0.2702278, 0.22756001, 0.21942027),
         val_ratio=0.2,
         aug_prob=0.5,
     ):
@@ -225,34 +209,8 @@ class MaskBaseDataset(Dataset):
         self.transform = None
         self.setup()  # 데이터셋을 설정
         self.calc_statistics()  # 통계시 계산 (평균 및 표준 편차)
-        self.wb_color_aug = wbAug.WBEmulator()
-        self.mapping = self.compute_mapping()
-        self.aug_prob = aug_prob
         self.labels = []
 
-    def compute_mapping(self):
-        """
-        White balance를 적용할 때 사용할 mapping을 만들고 불러오는 함수입니다
-
-        Returns:
-            List: white balance mapping을 담은 List를 반환합니다
-        """
-        temp = os.path.split(self.data_dir)[0]
-        if os.path.exists(os.path.join(temp, "wb_mfs.pickle")):
-            with open(os.path.join(temp, "wb_mfs.pickle"), "rb") as handle:
-                mapping_funcs = pickle.load(handle)
-            return mapping_funcs
-
-        print("Computing mapping functions for WB augmenter. " "This process may take time....")
-        mapping_funcs = []
-        for idx in tqdm(range(self.__len__())):
-            img = self.read_image(idx)
-            mfs = self.wb_color_aug.computeMappingFunc(img)
-            mapping_funcs.append(mfs)
-        with open(os.path.join(temp, "wb_mfs.pickle"), "wb") as handle:
-            pickle.dump(mapping_funcs, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        return mapping_funcs
 
     def setup(self):
         """데이터 디렉토리로부터 이미지 경로와 라벨을 설정하는 메서드"""
@@ -311,12 +269,6 @@ class MaskBaseDataset(Dataset):
         age_label = self.get_age_label(index)
         multi_class_label = self.encode_multi_class(mask_label, gender_label, age_label)
 
-        # if random.random() < self.aug_prob:
-        #     mfs = self.mapping[index]
-        #     ind = np.random.randint(len(mfs))
-        #     mf = mfs[ind]
-        #     image = wbAug.changeWB(np.array(image), mf)
-
         image_transform = self.transform(image)
         return image_transform, multi_class_label
 
@@ -339,7 +291,7 @@ class MaskBaseDataset(Dataset):
     def read_image(self, index):
         """인덱스에 해당하는 이미지를 읽는 메서드"""
         image_path = self.image_paths[index]
-        return Image.open(image_path)
+        return Image.open(image_path).convert('RGB')
 
     @staticmethod
     def encode_multi_class(mask_label, gender_label, age_label) -> int:
@@ -365,6 +317,7 @@ class MaskBaseDataset(Dataset):
         img_cp *= 255.0
         img_cp = np.clip(img_cp, 0, 255).astype(np.uint8)
         return img_cp
+
 
     def split_dataset(self, startify=True) -> Tuple[Subset, Subset]:
         """데이터셋을 학습과 검증용으로 나누는 메서드
@@ -475,32 +428,7 @@ class BalancedDataset(MaskSplitByProfileDataset):
         aug_prob=0.5,
     ):
         super().__init__(data_dir, mean, std, val_ratio, aug_prob)
-
-    def compute_mapping(self):
-        """
-        MaskBaseDataset의 compute_mapping 함수를 override 합니다
-        데이터 갯수가 늘어난 상태에서 기존의 wb_mfs.pickle 파일을 사용하면 에러가 발생하므로
-        wb_mfs_c.pickle를 새로 생성합니다
-
-        Returns:
-            List: white balance mapping을 담은 List를 반환합니다
-        """
-        temp = os.path.split(self.data_dir)[0]
-        if os.path.exists(os.path.join(temp, "wb_mfs_c.pickle")):
-            with open(os.path.join(temp, "wb_mfs_c.pickle"), "rb") as handle:
-                mapping_funcs = pickle.load(handle)
-            return mapping_funcs
-
-        print("Computing mapping functions for WB augmenter. " "This process may take time....")
-        mapping_funcs = []
-        for idx in tqdm(range(self.__len__())):
-            img = self.read_image(idx)
-            mfs = self.wb_color_aug.computeMappingFunc(img)
-            mapping_funcs.append(mfs)
-        with open(os.path.join(temp, "wb_mfs_c.pickle"), "wb") as handle:
-            pickle.dump(mapping_funcs, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        return mapping_funcs
+        
 
     def setup(self):
         """
@@ -586,7 +514,7 @@ class TestDataset(Dataset):
 
     def __getitem__(self, index):
         """인덱스에 해당하는 데이터를 가져오는 메서드"""
-        image = Image.open(self.img_paths[index])
+        image = Image.open(self.img_paths[index]).convert('RGB')
 
         if self.transform:
             image = self.transform(image)
