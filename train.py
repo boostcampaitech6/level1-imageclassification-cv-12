@@ -9,6 +9,13 @@ import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
+#############################################################################################################################################
+#
+# python train.py --epochs 30 --trainer Multi_f --early_stopping 5 --dataset MaskSplitByProfileDataset --augmentation CustomAugmentation
+#                 --resize 224 224 --model MFEfficientResNet --optimizer Adam --criterion focal --lr_decay_step 10
+# --name 은 각자의 이름 이니셜 들어가도록 허고 --data_dir 은 각자 서버에 있는 removed_background 로
+#
+#############################################################################################################################################
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -138,3 +145,7 @@ if __name__ == "__main__":
     
     end_time = datetime.datetime.now(timezone('Asia/Seoul'))
     print(f"학습 끝 : {str(end_time)[:19]}")
+
+    # 학습 소요 시간 계산 및 출력
+    elapsed_time = end_time - start_time
+    print(f"학습 소요 시간: {elapsed_time}")

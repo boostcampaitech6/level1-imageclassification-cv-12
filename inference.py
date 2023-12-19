@@ -116,7 +116,7 @@ if __name__ == "__main__":
         "--resize",
         nargs=2,
         type=int,
-        default=(96, 128),
+        default=(128, 96),
         help="resize size for image when you trained (default: (96, 128))",
     )
     parser.add_argument(
