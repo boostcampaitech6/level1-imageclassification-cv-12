@@ -420,7 +420,7 @@ class Multi_fTrainer:
                         'optimizer_state_dict': optimizer.state_dict(),
                         'scheduler_state_dict': scheduler.state_dict()
                     }
-                    torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
+                    torch.save(state, f"{save_dir}/best.pth")
                     best_val_acc = val_acc
                     counter = 0
                 else:
