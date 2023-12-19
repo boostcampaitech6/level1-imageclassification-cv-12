@@ -281,8 +281,13 @@ class Multi_fTrainer:
                     gender_loss = criterion(gender_output, gender_label)
                     age_loss = criterion(age_output, age_label)
 
-                mask_loss.backward()
+                sum_loss = mask_loss + gender_loss + age_loss
 
+                # weighted summation loss update 방식
+                # sum_loss.backward()
+
+                # coordinate loss update 방식
+                mask_loss.backward()
                 gender_loss.backward(retain_graph=True)
                 age_loss.backward()
 
@@ -290,13 +295,10 @@ class Multi_fTrainer:
                 gender_pred = torch.argmax(gender_output, dim=-1)
                 age_pred = torch.argmax(age_output, dim=-1)
                 preds = mask_pred * 6 + gender_pred * 3 + age_pred
-                # loss = criterion(outs, labels)
-                # loss.backward()
 
                 optimizer.step()
 
-                # loss_value += (sum_loss).item()
-                loss_value += (mask_loss + gender_loss + age_loss).item()
+                loss_value += (sum_loss).item()
                 m_value += mask_loss.item()
                 g_value += gender_loss.item()
                 a_value += age_loss.item()
@@ -350,13 +352,11 @@ class Multi_fTrainer:
                     labels = labels.to(device)
                     mask_label, gender_label, age_label = dataset.decode_multi_class(labels)
 
-                    # outs = model(inputs)
                     mask_output, gender_output, age_output = model(inputs)
                     mask_pred = torch.argmax(mask_output, dim=-1)
                     gender_pred = torch.argmax(gender_output, dim=-1)
                     age_pred = torch.argmax(age_output, dim=-1)
                     preds = mask_pred * 6 + gender_pred * 3 + age_pred
-                    # preds = torch.argmax(outs, dim=-1)
 
                     if args.criterion == "focal":
                         mask_loss = m_criterion(mask_output, mask_label)
@@ -367,8 +367,9 @@ class Multi_fTrainer:
                         gender_loss = criterion(gender_output, gender_label)
                         age_loss = criterion(age_output, age_label)
 
-                    # loss_item = (sum_loss).item()
-                    loss_item = (mask_loss + gender_loss + age_loss).item()
+                    sum_loss = mask_loss + gender_loss + age_loss
+
+                    loss_item = (sum_loss).item()
                     acc_item = (labels == preds).sum().item()
                     val_loss_items.append(loss_item)
                     val_acc_items.append(acc_item)

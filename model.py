@@ -146,7 +146,7 @@ class MultiLabelModel(nn.Module):
 
 class MFEfficientResNet(nn.Module):
     def __init__(self, num_classes):
-        super(MFEfficientResNet, self).__init__()
+        super().__init__()
 
         """
         1. backbone 선택 후 classifier 차원 수 설정

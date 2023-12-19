@@ -359,34 +359,37 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
         super().__init__(data_dir, mean, std, val_ratio, aug_prob)
 
     @staticmethod
-    def _split_profile(profiles, val_ratio):
+    def _split_profile(profiles, val_ratio, labels):
         """프로필을 학습과 검증용으로 나누는 메서드"""
         length = len(profiles)
-        # n_val = int(length * val_ratio)
 
-        def encode_profile_label(profile):
+        train_idx, val_idx = train_test_split(
+            range(length), test_size=val_ratio, shuffle=True, stratify=labels
+        )
+        return {"train": train_idx, "val": val_idx}
+
+    def _extract_labels(self, profiles):
+        """
+        MaskSplitByProfileDataset 에서 startified_split을 위해서, 프로필에서 성별 및 나이 정보를 추출하여 라벨을 생성하는 메서드
+        """
+        labels = []
+        for profile in profiles:
             id, gender, race, age = profile.split("_")
             gender_label = GenderLabels.from_str(gender)
             age_label = AgeLabels.from_number(age)
-            profile_label = gender_label * 3 + age_label
-            return profile_label
-
-        profile_labels = [encode_profile_label(profile) for profile in profiles]
-
-        # val_indices = set(random.sample(range(length), k=n_val))
-        # train_indices = set(range(length)) - val_indices
-
-        train_indices, val_indices = train_test_split(
-            np.arrange(length), test_size=val_ratio, shuffle=True, startify=profile_labels
-        )
-
-        return {"train": train_indices, "val": val_indices}
+            labels.append(self.encode_multi_class(0, gender_label, age_label))  # 마스크 라벨은 0으로 설정
+        return labels
 
     def setup(self):
-        """데이터셋 설정을 하는 메서드. 프로필 기준으로 나눈다."""
+        """
+        데이터셋 설정을 하는 메서드. 프로필 기준으로 나눈다. 나눌 때, 나이와 성별로 stratified_split 을 진행한다.
+        """
         profiles = os.listdir(self.data_dir)
-        profiles = [profile for profile in profiles if not profile.startswith(".")]
-        split_profiles = self._split_profile(profiles, self.val_ratio)
+        profiles = [
+            profile for profile in profiles if not (profile.startswith(".") or profile.endswith("pickle"))
+        ]
+        labels = self._extract_labels(profiles)
+        split_profiles = self._split_profile(profiles, self.val_ratio, labels)
 
         cnt = 0
         for phase, indices in split_profiles.items():
@@ -445,7 +448,8 @@ class BalancedDataset(MaskSplitByProfileDataset):
         """
         profiles = os.listdir(self.data_dir)
         profiles = [profile for profile in profiles if not profile.startswith(".")]
-        split_profiles = self._split_profile(profiles, self.val_ratio)
+        labels = self._extract_labels(profiles)
+        split_profiles = self._split_profile(profiles, self.val_ratio, labels)
         # split_profiles 는 {"train": train_indices, "val": val_indices} 형태
 
         cnt = 0

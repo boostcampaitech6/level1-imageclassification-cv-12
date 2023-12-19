@@ -20,8 +20,8 @@ import numpy as np
 # python preprocess.py --function update_csv --origin_csv "/data/ephemeral/home/level1-imageclassification-cv-12/output/output.csv" --target_csv "/data/ephemeral/home/level1-imageclassification-cv-12/output/output_2.csv"
 ##############################################################################################################################################
 
-
 random.seed(42)
+
 
 def split_profile_by_gender(profiles, img_dir):
     """
@@ -69,7 +69,7 @@ def make_images(front_idx, back_idx, save_dir, new_folder_dir, profiles):
         new_folder_dir (str) : 새로 만든 7장의 사진을 저장할 폴더의 이름
         profiles (list) : idx로 기존의 사진을 가져오기 위한 리스트
     """
-    
+
     title = ["incorrect_mask", "mask1", "mask2", "mask3", "mask4", "mask5", "normal"]
     ext = ".png"
 
@@ -107,15 +107,16 @@ def make_img_by_gender(gender, profiles, save_dir):
     for i in range(len(front_img_idxs)):
         id += 1
         new_folder_dir = f"{id:0>6}_{gender}_Fake_60"
-        os.mkdir(os.path.join(img_dir, new_folder_dir))
+        os.mkdir(os.path.join(save_dir, new_folder_dir))
 
         make_images(front_img_idxs[i], back_img_idxs[i], save_dir, new_folder_dir, profiles)
-        
+
 
 def make_new_data(save_dir, male, female):
     make_folder(save_dir)
-    make_img_by_gender(gender="male", profiles=male, save_dir=img_dir)
-    make_img_by_gender(gender="female", profiles=female, save_dir=img_dir)
+
+    make_img_by_gender(gender="male", profiles=male, save_dir=save_dir)
+    make_img_by_gender(gender="female", profiles=female, save_dir=save_dir)
     print("Done.")
 
 
@@ -135,40 +136,47 @@ def remove_background(img_dir, target_root):
     """
     배경을 제거하는 함수
     """
-    
+
     root = os.listdir(img_dir)
 
     for person in tqdm(root):
-        imgs = glob.glob(os.path.join(img_dir, person, '*.png'))
-        if person.startswith('.'):
+        imgs = glob.glob(os.path.join(img_dir, person, "*.png"))
+        if person.startswith("."):
             continue
         if not os.path.isdir(os.path.join(target_root, person)):
             os.mkdir(os.path.join(target_root, person))
         for img in imgs:
             input_img = img
-            target_img = os.path.join(target_root, person, os.path.basename(img).split('.')[0] + '.png')
+            target_img = os.path.join(target_root, person, os.path.basename(img).split(".")[0] + ".png")
             image = Image.open(input_img)
             output = remove(image)
             output.save(target_img)
+
 
 def update_csv(origin_csv, target_csv):
     """
     리더보드 제출을 위해 csv 확장자 수정 함수
     """
     data = pd.read_csv(origin_csv)
-    for i in range(len(data['ImageID'])):
-        data['ImageID'][i] = data['ImageID'][i].split('.')[0] + '.jpg'
+    for i in range(len(data["ImageID"])):
+        data["ImageID"][i] = data["ImageID"][i].split(".")[0] + ".jpg"
 
     data.to_csv(target_csv, index=False)
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Preprocessing script')
-    parser.add_argument('--function', type=str, help='Function to execute (make_new_data, remove_fake_pic, preprocess_images, update_csv)', required=True)
-    parser.add_argument('--img_dir', type=str, help='Path to the image directory')
-    parser.add_argument('--save_dir', type=str, help='Path to save the processed images')
-    parser.add_argument('--target_root', type=str, help='Target root for background removal')
-    parser.add_argument('--origin_csv', type=str, help='Path to the original CSV file')
-    parser.add_argument('--target_csv', type=str, help='Path to save the updated CSV file')
+    parser = argparse.ArgumentParser(description="Preprocessing script")
+    parser.add_argument(
+        "--function",
+        type=str,
+        help="Function to execute (make_new_data, remove_fake_pic, preprocess_images, update_csv)",
+        required=True,
+    )
+    parser.add_argument("--img_dir", type=str, help="Path to the image directory")
+    parser.add_argument("--save_dir", type=str, help="Path to save the processed images")
+    parser.add_argument("--target_root", type=str, help="Target root for background removal")
+    parser.add_argument("--origin_csv", type=str, help="Path to the original CSV file")
+    parser.add_argument("--target_csv", type=str, help="Path to save the updated CSV file")
     args = parser.parse_args()
 
     function_to_execute = args.function
@@ -178,19 +186,85 @@ def main():
     origin_csv = args.origin_csv
     target_csv = args.target_csv
 
-    if function_to_execute == 'make_mixup':
+    if function_to_execute == "make_mixup":
         folders = os.listdir(img_dir)
         profiles = [folder for folder in folders if not folder.startswith(".")]
         male, female = split_profile_by_gender(profiles, img_dir)
         remove_fake_pic(save_dir)
         make_new_data(save_dir, male, female)
 
-    elif function_to_execute == 'remove_background':
+    elif function_to_execute == "remove_background":
         remove_background(img_dir, target_root)
-    elif function_to_execute == 'update_csv':
+    elif function_to_execute == "update_csv":
         update_csv(origin_csv, target_csv)
     else:
-        print('Invalid function specified. Please choose from make_new_data, make_mixup, remove_background, update_csv.')
+        print(
+            "Invalid function specified. Please choose from make_new_data, make_mixup, remove_background, update_csv."
+        )
 
-if __name__ == '__main__':
+    for person in tqdm(root):
+        imgs = glob.glob(os.path.join(img_dir, person, "*.png"))
+        if person.startswith("."):
+            continue
+        if not os.path.isdir(os.path.join(target_root, person)):
+            os.mkdir(os.path.join(target_root, person))
+        for img in imgs:
+            input_img = img
+            target_img = os.path.join(target_root, person, os.path.basename(img).split(".")[0] + ".png")
+            image = Image.open(input_img)
+            output = remove(image)
+            output.save(target_img)
+
+
+def update_csv(origin_csv, target_csv):
+    """
+    리더보드 제출을 위해 csv 확장자 수정 함수
+    """
+    data = pd.read_csv(origin_csv)
+    for i in range(len(data["ImageID"])):
+        data["ImageID"][i] = data["ImageID"][i].split(".")[0] + ".jpg"
+
+    data.to_csv(target_csv, index=False)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Preprocessing script")
+    parser.add_argument(
+        "--function",
+        type=str,
+        help="Function to execute (make_new_data, remove_fake_pic, preprocess_images, update_csv)",
+        required=True,
+    )
+    parser.add_argument("--img_dir", type=str, help="Path to the image directory")
+    parser.add_argument("--save_dir", type=str, help="Path to save the processed images")
+    parser.add_argument("--target_root", type=str, help="Target root for background removal")
+    parser.add_argument("--origin_csv", type=str, help="Path to the original CSV file")
+    parser.add_argument("--target_csv", type=str, help="Path to save the updated CSV file")
+    args = parser.parse_args()
+
+    function_to_execute = args.function
+    img_dir = args.img_dir
+    save_dir = args.save_dir
+    target_root = args.target_root
+    origin_csv = args.origin_csv
+    target_csv = args.target_csv
+
+    if function_to_execute == "make_mixup":
+        folders = os.listdir(img_dir)
+        profiles = [folder for folder in folders if not folder.startswith(".")]
+        male, female = split_profile_by_gender(profiles, img_dir)
+        remove_fake_pic(save_dir)
+        make_new_data(save_dir, male, female)
+
+    elif function_to_execute == "remove_background":
+        remove_background(img_dir, target_root)
+    elif function_to_execute == "update_csv":
+        update_csv(origin_csv, target_csv)
+    else:
+        print(
+            "Invalid function specified. Please choose from make_new_data, make_mixup, remove_background, update_csv."
+        )
+
+
+if __name__ == "__main__":
     main()
