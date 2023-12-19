@@ -109,6 +109,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("--model_dir", type=str, default=os.environ.get("SM_MODEL_DIR", "./model"))
 
+    parser.add_argument(
+        "--resume_dir", type=str, default=None, help="path to latest checkpoint (default: None)"
+    )
+
     args = parser.parse_args()
     print(args)
 
