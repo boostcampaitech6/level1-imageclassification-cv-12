@@ -116,8 +116,8 @@ if __name__ == "__main__":
         "--resize",
         nargs=2,
         type=int,
-        default=(192, 144),
-        help="resize size for image when you trained (default: (192, 144))",
+        default=(128, 96),
+        help="resize size for image when you trained (default: (128, 96))",
     )
     parser.add_argument("--model", type=str, default="BaseModel", help="model type (default: BaseModel)")
 

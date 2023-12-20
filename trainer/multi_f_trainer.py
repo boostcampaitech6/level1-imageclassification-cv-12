@@ -299,6 +299,7 @@ class Multi_fTrainer:
                 optimizer.step()
 
                 loss_value += (sum_loss).item()
+                loss_value += (sum_loss).item()
                 m_value += mask_loss.item()
                 g_value += gender_loss.item()
                 a_value += age_loss.item()
@@ -352,6 +353,7 @@ class Multi_fTrainer:
                     labels = labels.to(device)
                     mask_label, gender_label, age_label = dataset.decode_multi_class(labels)
 
+                    mask_output, gender_output, age_output = model(inputs)
                     mask_output, gender_output, age_output = model(inputs)
                     mask_pred = torch.argmax(mask_output, dim=-1)
                     gender_pred = torch.argmax(gender_output, dim=-1)
