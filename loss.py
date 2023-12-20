@@ -8,9 +8,9 @@ import torch.nn.functional as F
 # https://discuss.pytorch.org/t/is-this-a-correct-implementation-for-focal-loss-in-pytorch/43327/8
 # baseline
 class FocalLoss(nn.Module):
-    def __init__(self, weight=None, gamma=2.0, reduction="mean"):
+    def __init__(self, alpha=None, gamma=2.0, reduction="mean"):
         nn.Module.__init__(self)
-        self.weight = weight
+        self.alpha = alpha
         self.gamma = gamma
         self.reduction = reduction
 
@@ -20,7 +20,7 @@ class FocalLoss(nn.Module):
         return F.nll_loss(
             ((1 - prob) ** self.gamma) * log_prob,
             target_tensor,
-            weight=self.weight,
+            weight=self.alpha,
             reduction=self.reduction,
         )
 

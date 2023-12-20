@@ -27,7 +27,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-class MultiTrainer:
+class Multi_coord_fTrainer:
     """
     1. single classifier train
     2. wandb 연결
@@ -204,6 +204,13 @@ class MultiTrainer:
         # -- model
         model_module = getattr(import_module("model"), args.model)  # default: BaseModel
         model = model_module(num_classes=num_classes).to(device)
+
+        if args.resume_dir is not None:
+            resume_path = os.path.join(args.resume_dir, "last.pth")
+            load_dict = torch.load(resume_path)
+            model.load_state_dict(load_dict["model_state_dict"])
+            model.to(device)
+
         train_params_m = [
             {"params": getattr(model, "mask_classifier").parameters(), "lr": args.lr, "weight_decay": 5e-4},
             {"params": getattr(model, "backbone1").parameters(), "lr": args.lr / 10, "weight_decay": 5e-4},
@@ -216,12 +223,6 @@ class MultiTrainer:
             {"params": getattr(model, "age_classifier").parameters(), "lr": args.lr, "weight_decay": 5e-4},
             {"params": getattr(model, "backbone2").parameters(), "lr": args.lr / 10, "weight_decay": 5e-4},
         ]
-
-        if args.resume_dir is not None:
-            resume_path = os.path.join(args.resume_dir, "last.pth")
-            load_dict = torch.load(resume_path)
-            model.load_state_dict(load_dict["model_state_dict"])
-            model.to(device)
 
         model = torch.nn.DataParallel(model)
 
@@ -236,6 +237,7 @@ class MultiTrainer:
             a_criterion = create_criterion(args.criterion, alpha=a_cls_weight)
         else:
             criterion = create_criterion(args.criterion)
+
         opt_module = getattr(import_module("torch.optim"), args.optimizer)
         optimizer_m = opt_module(train_params_m)
         optimizer_g = opt_module(train_params_g)

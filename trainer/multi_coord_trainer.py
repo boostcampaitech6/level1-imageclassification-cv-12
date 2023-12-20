@@ -27,7 +27,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-class MultiTrainer:
+class Multi_coord_Trainer:
     """
     1. single classifier train
     2. wandb 연결

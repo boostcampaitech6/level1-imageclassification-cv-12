@@ -179,13 +179,7 @@ class MFEfficientResNet(nn.Module):
         )
 
         self.age_classifier = nn.Sequential(
-            nn.Linear(2560, 1024),
-            nn.LeakyReLU(0.1),
-            nn.Dropout(),
-            nn.Linear(1024, 512),
-            nn.LeakyReLU(0.1),
-            nn.Dropout(),
-            nn.Linear(512, age_num_classes),
+            nn.Linear(2560, 512), nn.LeakyReLU(0.1), nn.Dropout(), nn.Linear(512, age_num_classes)
         )
 
         self.initialize_weights(self.mask_classifier)
