@@ -483,15 +483,26 @@ class BalancedDataset(MaskSplitByProfileDataset):
                     if mask_label != 0:
                         loop_mask == 5
                         # 마스크를 안쓴 경우, 마스크를 부적절하게 쓴 경우인 사진들을 5번 중복 입력합니다
+                    loop_gender = 1
+                    if gender_label == 0:
+                        loop_gender = 2
+
+                    loop_age = 1
+                    if age_label == 2:
+                        loop_age = 2
+                    elif age_label == 1:
+                        loop_age = 2
 
                     for i in range(loop_mask):
-                        self.image_paths.append(img_path)
-                        self.mask_labels.append(mask_label)
-                        self.gender_labels.append(gender_label)
-                        self.age_labels.append(age_label)
+                        for j in range(loop_gender):
+                            for k in range(loop_age):
+                                self.image_paths.append(img_path)
+                                self.mask_labels.append(mask_label)
+                                self.gender_labels.append(gender_label)
+                                self.age_labels.append(age_label)
 
-                        self.indices[phase].append(cnt)
-                        cnt += 1
+                                self.indices[phase].append(cnt)
+                                cnt += 1
 
 
 class TestDataset(Dataset):
