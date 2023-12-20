@@ -395,7 +395,7 @@ class Mixer(nn.Module):
 # Custom Model Template
 class EfficientViT(nn.Module):
     def __init__(self, num_classes):
-        super(EfficientViT, self).__init__()
+        super().__init__()
 
         """
         1. backbone 선택 후 classifier 차원 수 설정
@@ -461,6 +461,69 @@ class EfficientViT(nn.Module):
 
         gender_output = self.gender_classifier(ga_features)
         age_output = self.age_classifier(ga_features)
+
+        return mask_output, gender_output, age_output
+
+    def initialize_weights(self, model):
+        """
+        He 가중치 초기화
+        """
+        for m in model.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="leaky_relu")
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+
+# Custom Model Template
+class effViT(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+
+        """
+        1. backbone 선택 후 classifier 차원 수 설정
+        2. 모델의 output_dimension 은 num_classes 로 설정
+        """
+
+        mask_num_classes = int(num_classes // 6)
+        gender_num_classes = int(num_classes // 9)
+        age_num_classes = int(num_classes // 6)
+
+        # pretrained model -> 각 모델의 마지막 fc layer 를 빼고 차원 수 맞춰주는 작업 필요
+        self.features = timm.create_model("efficientvit_b3.r224_in1k", pretrained=True, num_classes=0)
+
+        # three classifier
+        self.mask_classifier = nn.Sequential(
+            nn.Linear(512, 256), nn.LeakyReLU(0.1), nn.Dropout(), nn.Linear(256, mask_num_classes)
+        )
+
+        self.gender_classifier = nn.Sequential(
+            nn.Linear(512, 256), nn.LeakyReLU(0.1), nn.Dropout(), nn.Linear(256, gender_num_classes)
+        )
+
+        self.age_classifier = nn.Sequential(
+            nn.Linear(512, 256), nn.LeakyReLU(0.1), nn.Dropout(), nn.Linear(256, age_num_classes)
+        )
+
+        self.initialize_weights(self.mask_classifier)
+        self.initialize_weights(self.gender_classifier)
+        self.initialize_weights(self.age_classifier)
+
+    def forward(self, x):
+        """
+        1. Mask와 Gender 는 feature 를 공유하고, Age 는 따로 feature를 사용하여 클래스 별로 3개의 output 출력
+        """
+        # Feature extraction
+        features = self.features(x)
+        features = features.view(features.size(0), -1)  # Flatten features
+
+        # Task-specific & Multi feature output
+        mask_output = self.mask_classifier(features)
+        gender_output = self.gender_classifier(features)
+        age_output = self.age_classifier(features)
 
         return mask_output, gender_output, age_output
 
