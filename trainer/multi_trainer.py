@@ -211,6 +211,13 @@ class MultiTrainer:
         # -- model
         model_module = getattr(import_module("model"), args.model)  # default: BaseModel
         model = model_module(num_classes=num_classes).to(device)
+        
+        if args.resume_dir is not None:
+            resume_path = os.path.join(args.resume_dir, "last.pth")
+            load_dict = torch.load(resume_path)
+            model.load_state_dict(load_dict["model_state_dict"])
+            model.to(device)
+        
         train_params = [{'params': getattr(model, 'features').parameters(), 'lr': args.lr / 10, 'weight_decay':5e-4},
                     {'params': getattr(model, 'mask_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
                     {'params': getattr(model, 'gender_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
@@ -232,6 +239,10 @@ class MultiTrainer:
         opt_module = getattr(import_module("torch.optim"), args.optimizer)
         optimizer = opt_module(train_params)
         scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
+        
+        if args.resume_dir is not None:
+            optimizer.load_state_dict(load_dict["optimizer_state_dict"])
+            scheduler.load_state_dict(load_dict["scheduler_state_dict"])
 
         # -- logging
         logger = SummaryWriter(log_dir=save_dir)
