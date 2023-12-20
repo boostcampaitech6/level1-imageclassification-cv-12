@@ -284,8 +284,7 @@ class Multi_coord_fTrainer:
 
                 optimizer_m.zero_grad()
 
-                feature_m = model.backbone1(inputs)
-                mask_output = model.mask_classifier(feature_m)
+                mask_output, gender_output, age_output = model(inputs)
 
                 if args.criterion == "focal":
                     mask_loss = m_criterion(mask_output, mask_label)
@@ -297,8 +296,8 @@ class Multi_coord_fTrainer:
 
                 optimizer_g.zero_grad()
 
-                feature_g = model.backbone2(inputs)
-                gender_output = model.gender_classifier(feature_g)
+                # mask_output, gender_output, age_output = model(inputs)
+                # mask_output이 나오는 경로와 gender_output이 나오는 경로는 겹치지 않는다
 
                 if args.criterion == "focal":
                     gender_loss = g_criterion(gender_output, gender_label)
@@ -310,8 +309,7 @@ class Multi_coord_fTrainer:
 
                 optimizer_a.zero_grad()
 
-                feature_a = model.backbone2(inputs)
-                age_output = model.age_classifier(feature_a)
+                mask_output, gender_output, age_output = model(inputs)
 
                 if args.criterion == "focal":
                     age_loss = a_criterion(age_output, age_label)
