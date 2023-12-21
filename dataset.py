@@ -124,6 +124,28 @@ class CustomAugmentation:
         return augmented["image"]
 
 
+class CustomAugmentationPreProcessed:
+
+    """커스텀 Augmentation을 담당하는 클래스 -> albumentations 사용"""
+
+    def __init__(self, resize, mean, std, **args):
+        self.transform = A.Compose(
+            [
+                # A.CenterCrop(height=320, width=256),
+                A.Resize(*resize, interpolation=0),
+                A.ShiftScaleRotate(p=0.5, rotate_limit=30),
+                A.RandomBrightnessContrast(brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5),
+                A.Normalize(mean=mean, std=std),
+                ToTensorV2(),
+            ]
+        )
+
+    def __call__(self, img):
+        augmented = self.transform(image=np.array(img).astype(np.uint8))
+
+        return augmented["image"]
+
+
 class MaskLabels(int, Enum):
     """마스크 라벨을 나타내는 Enum 클래스"""
 
@@ -211,12 +233,11 @@ class MaskBaseDataset(Dataset):
         self.calc_statistics()  # 통계시 계산 (평균 및 표준 편차)
         self.labels = []
 
-
     def setup(self):
         """데이터 디렉토리로부터 이미지 경로와 라벨을 설정하는 메서드"""
         profiles = os.listdir(self.data_dir)
         for profile in profiles:
-            if profile.startswith(".") or profile.endswith('pickle'):  # "." 로 시작하는 파일은 무시합니다
+            if profile.startswith(".") or profile.endswith("pickle"):  # "." 로 시작하는 파일은 무시합니다
                 continue
 
             img_folder = os.path.join(self.data_dir, profile)
@@ -291,7 +312,7 @@ class MaskBaseDataset(Dataset):
     def read_image(self, index):
         """인덱스에 해당하는 이미지를 읽는 메서드"""
         image_path = self.image_paths[index]
-        return Image.open(image_path).convert('RGB')
+        return Image.open(image_path).convert("RGB")
 
     @staticmethod
     def encode_multi_class(mask_label, gender_label, age_label) -> int:
@@ -318,30 +339,26 @@ class MaskBaseDataset(Dataset):
         img_cp = np.clip(img_cp, 0, 255).astype(np.uint8)
         return img_cp
 
-
     def split_dataset(self, startify=True) -> Tuple[Subset, Subset]:
         """데이터셋을 학습과 검증용으로 나누는 메서드
         데이터셋을 train 과 val 로 나눕니다,
         pytorch 내부의 torch.utils.data.random_split 함수를 사용하여 torch.utils.data.Subset 클래스 둘로 나눕니다.
-        
+
         sklearn 의 train_test_split 을 이용하여 startify 기능을 구현합니다.
         """
-        
+
         if startify:
             train_idx, valid_idx = train_test_split(
-                np.arrange(len(self.labels)),
-                test_size=self.val_ratio,
-                shuffle=True,
-                startify=self.labels
+                np.arrange(len(self.labels)), test_size=self.val_ratio, shuffle=True, startify=self.labels
             )
         else:
             n_val = int(len(self) * self.val_ratio)
             n_train = len(self) - n_val
             train_set, val_set = random_split(self, [n_train, n_val])
-        
+
         train_set = Subset(self, train_idx)
         val_set = Subset(self, valid_idx)
-        
+
         return train_set, val_set
 
 
@@ -368,7 +385,9 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
         """프로필을 학습과 검증용으로 나누는 메서드"""
         length = len(profiles)
 
-        train_idx, val_idx = train_test_split(range(length), test_size=val_ratio, shuffle=True, stratify=labels)
+        train_idx, val_idx = train_test_split(
+            range(length), test_size=val_ratio, shuffle=True, stratify=labels
+        )
         return {"train": train_idx, "val": val_idx}
 
     def _extract_labels(self, profiles):
@@ -388,7 +407,9 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
         데이터셋 설정을 하는 메서드. 프로필 기준으로 나눈다. 나눌 때, 나이와 성별로 stratified_split 을 진행한다.
         """
         profiles = os.listdir(self.data_dir)
-        profiles = [profile for profile in profiles if not (profile.startswith(".") or profile.endswith('pickle'))]
+        profiles = [
+            profile for profile in profiles if not (profile.startswith(".") or profile.endswith("pickle"))
+        ]
         labels = self._extract_labels(profiles)
         split_profiles = self._split_profile(profiles, self.val_ratio, labels)
 
@@ -397,7 +418,7 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
             for _idx in indices:
                 profile = profiles[_idx]
                 img_folder = os.path.join(self.data_dir, profile)
-                if img_folder.endswith('pickle'):
+                if img_folder.endswith("pickle"):
                     continue
                 for file_name in os.listdir(img_folder):
                     _file_name, ext = os.path.splitext(file_name)
@@ -441,7 +462,6 @@ class BalancedDataset(MaskSplitByProfileDataset):
         aug_prob=0.5,
     ):
         super().__init__(data_dir, mean, std, val_ratio, aug_prob)
-        
 
     def setup(self):
         """
@@ -459,7 +479,7 @@ class BalancedDataset(MaskSplitByProfileDataset):
             for _idx in indices:
                 profile = profiles[_idx]
                 img_folder = os.path.join(self.data_dir, profile)
-                if img_folder.endswith('pickle'):
+                if img_folder.endswith("pickle"):
                     continue
                 for file_name in os.listdir(img_folder):
                     # file_name은 'incorrect_mask.jpg' 'mask4.jpg' 이런 형태
@@ -515,7 +535,13 @@ class BalancedDataset(MaskSplitByProfileDataset):
 class TestDataset(Dataset):
     """테스트 데이터셋 클래스"""
 
-    def __init__(self, img_paths, resize, mean=(0.20696366, 0.16345932, 0.15741424), std=(0.2702278, 0.22756001, 0.21942027),):
+    def __init__(
+        self,
+        img_paths,
+        resize,
+        mean=(0.20696366, 0.16345932, 0.15741424),
+        std=(0.2702278, 0.22756001, 0.21942027),
+    ):
         self.img_paths = img_paths
         self.transform = Compose(
             [
@@ -527,7 +553,7 @@ class TestDataset(Dataset):
 
     def __getitem__(self, index):
         """인덱스에 해당하는 데이터를 가져오는 메서드"""
-        image = Image.open(self.img_paths[index]).convert('RGB')
+        image = Image.open(self.img_paths[index]).convert("RGB")
 
         if self.transform:
             image = self.transform(image)
