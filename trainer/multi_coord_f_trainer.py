@@ -217,7 +217,7 @@ class Multi_coord_fTrainer:
         ]
         train_params_g = [
             {"params": getattr(model, "gender_classifier").parameters(), "lr": args.lr, "weight_decay": 5e-4},
-            {"params": getattr(model, "backbone2").parameters(), "lr": args.lr / 10, "weight_decay": 5e-4},
+            {"params": getattr(model, "backbone1").parameters(), "lr": args.lr / 10, "weight_decay": 5e-4},
         ]
         train_params_a = [
             {"params": getattr(model, "age_classifier").parameters(), "lr": args.lr, "weight_decay": 5e-4},
@@ -282,30 +282,8 @@ class Multi_coord_fTrainer:
                 labels = labels.to(device)
                 mask_label, gender_label, age_label = dataset.decode_multi_class(labels)
 
-                optimizer_m.zero_grad()
-
-                mask_output, gender_output, age_output = model(inputs)
-
-                if args.criterion == "focal":
-                    mask_loss = m_criterion(mask_output, mask_label)
-                else:
-                    mask_loss = criterion(mask_output, mask_label)
-
-                mask_loss.backward()
-                optimizer_m.step()
-
-                optimizer_g.zero_grad()
-
                 # mask_output, gender_output, age_output = model(inputs)
                 # mask_output이 나오는 경로와 gender_output이 나오는 경로는 겹치지 않는다
-
-                if args.criterion == "focal":
-                    gender_loss = g_criterion(gender_output, gender_label)
-                else:
-                    gender_loss = criterion(gender_output, gender_label)
-
-                gender_loss.backward()
-                optimizer_g.step()
 
                 optimizer_a.zero_grad()
 
@@ -318,6 +296,28 @@ class Multi_coord_fTrainer:
 
                 age_loss.backward()
                 optimizer_a.step()
+
+                optimizer_m.zero_grad()
+
+                if args.criterion == "focal":
+                    mask_loss = m_criterion(mask_output, mask_label)
+                else:
+                    mask_loss = criterion(mask_output, mask_label)
+
+                mask_loss.backward()
+                optimizer_m.step()
+
+                optimizer_g.zero_grad()
+
+                mask_output, gender_output, age_output = model(inputs)
+
+                if args.criterion == "focal":
+                    gender_loss = g_criterion(gender_output, gender_label)
+                else:
+                    gender_loss = criterion(gender_output, gender_label)
+
+                gender_loss.backward()
+                optimizer_g.step()
 
                 sum_loss = mask_loss + gender_loss + age_loss
                 # sum_loss.backward()
