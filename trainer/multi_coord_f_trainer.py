@@ -206,7 +206,7 @@ class Multi_coord_fTrainer:
         model = model_module(num_classes=num_classes).to(device)
 
         if args.resume_dir is not None:
-            resume_path = os.path.join(args.resume_dir, "last.pth")
+            resume_path = os.path.join(args.resume_dir, "best.pth")
             load_dict = torch.load(resume_path)
             model.load_state_dict(load_dict["model_state_dict"])
             model.to(device)
