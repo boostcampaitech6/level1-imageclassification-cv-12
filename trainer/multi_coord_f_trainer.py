@@ -12,7 +12,7 @@ from collections import Counter
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
 from torch.utils.tensorboard import SummaryWriter
@@ -29,11 +29,11 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 class Multi_coord_fTrainer:
     """
-    1. single classifier train
-    2. wandb 연결
+    1. Multi_classifier_feature_model 용 Traniner
+    2. coordinate loss update 방식
     3. early stopping 구현 - args.early_stopping 로 threshold 설정
-    4. Stratified k-fold 구현 - args.k_limits 로 분할 횟수 설정
-    5. WeightedRandomSampler 구현
+    4. WeightedRandomSampler 구현
+    5. WandB 로그 기록
     """
 
     def __init__(self, data_dir, model_dir, args):
@@ -77,16 +77,15 @@ class Multi_coord_fTrainer:
             return param_group["lr"]
 
     def grid_image(self, np_images, gts, preds, n=16, shuffle=False):
+        """
+        tensorboard 로 모델에 들어간 이미지(augmentation 적용되어 있는)를 확인할 수 있습니다.
+        """
         batch_size = np_images.shape[0]
         assert n <= batch_size
 
         choices = random.choices(range(batch_size), k=n) if shuffle else list(range(n))
-        figure = plt.figure(
-            figsize=(12, 18 + 2)
-        )  # cautions: hardcoded, 이미지 크기에 따라 figsize 를 조정해야 할 수 있습니다. T.T
-        plt.subplots_adjust(
-            top=0.8
-        )  # cautions: hardcoded, 이미지 크기에 따라 top 를 조정해야 할 수 있습니다. T.T
+        figure = plt.figure(figsize=(12, 18 + 2))
+        plt.subplots_adjust(top=0.8)
         n_grid = int(np.ceil(n**0.5))
         tasks = ["mask", "gender", "age"]
         for idx, choice in enumerate(choices):
@@ -159,7 +158,7 @@ class Multi_coord_fTrainer:
         dataset = dataset_module(
             data_dir=self.data_dir,
         )
-        num_classes = dataset.num_classes  # 18
+        num_classes = dataset.num_classes  # 18 (3 * mask + 2 * gender + 3)
 
         # -- augmentation
         transform_module = getattr(
@@ -173,7 +172,7 @@ class Multi_coord_fTrainer:
         dataset.set_transform(transform)
 
         # -- weightedRandomSampler
-        train_set, val_set = dataset.split_dataset()
+        train_set, val_set = dataset.split_dataset()  # startified split
 
         labels = [
             dataset.encode_multi_class(mask, gender, age)
@@ -287,7 +286,7 @@ class Multi_coord_fTrainer:
         optimizer_a = opt_module(train_params_a)
         scheduler_m = StepLR(optimizer_m, args.lr_decay_step, gamma=0.1)
         scheduler_g = StepLR(optimizer_g, args.lr_decay_step, gamma=0.1)
-        scheduler_a = StepLR(optimizer_a, args.lr_decay_step, gamma=0.1)
+        scheduler_a = CosineAnnealingLR(optimizer_a, T_max=10)
 
         if args.resume_dir is not None:
             optimizer_m.load_state_dict(load_dict["optimizer_m_state_dict"])
@@ -506,8 +505,9 @@ class Multi_coord_fTrainer:
 
                     torch.save(state, f"{save_dir}/best_acc.pth")
                     best_val_acc = val_acc
+                    counter = 0
 
-                if val_f1 > best_val_f1:
+                elif val_f1 > best_val_f1:
                     print(
                         f"New best model for val f1 : {val_f1:2.4}! saving the best model.."
                     )

@@ -17,7 +17,7 @@ import numpy as np
 # python preprocess.py --function remove_background --img_dir "/data/ephemeral/home/removed_background_train" --target_root "/data/ephemeral/home/removed_background"
 
 # # update_csv 함수 실행
-# python preprocess.py --function update_csv --origin_csv "/data/ephemeral/home/level1-imageclassification-cv-12/output/output.csv" --target_csv "/data/ephemeral/home/level1-imageclassification-cv-12/output/output_2.csv"
+# python preprocess.py --function update_csv --origin_csv "/data/ephemeral/home/level1-imageclassification/output/output.csv" --target_csv "/data/ephemeral/home/level1-imageclassification/output/output.csv"
 ##############################################################################################################################################
 
 random.seed(42)

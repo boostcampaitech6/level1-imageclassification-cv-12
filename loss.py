@@ -6,7 +6,8 @@ import torch.nn.functional as F
 # Focal Loss 구현
 # 이는 불균형한 데이터셋에서 사용되며, 잘못 분류된 샘플에 더 많은 중요도를 부여한다.
 # https://discuss.pytorch.org/t/is-this-a-correct-implementation-for-focal-loss-in-pytorch/43327/8
-# baseline
+
+
 class FocalLoss(nn.Module):
     def __init__(self, alpha=None, gamma=2.0, reduction="mean"):
         nn.Module.__init__(self)

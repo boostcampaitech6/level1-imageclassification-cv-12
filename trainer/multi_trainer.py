@@ -29,11 +29,11 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 class MultiTrainer:
     """
-    1. single classifier train
-    2. wandb 연결
+    1. multi classifier trainer 구축
+    2. summation loss update 방식
     3. early stopping 구현 - args.early_stopping 로 threshold 설정
-    4. Stratified k-fold 구현 - args.k_limits 로 분할 횟수 설정
-    5. WeightedRandomSampler 구현
+    4. WeightedRandomSampler 구현
+    5. WandB 로그 기록
     """
 
     def __init__(self, data_dir, model_dir, args):
