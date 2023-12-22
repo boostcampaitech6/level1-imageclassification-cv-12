@@ -84,7 +84,9 @@ class Multi_coord_fTrainer:
         figure = plt.figure(
             figsize=(12, 18 + 2)
         )  # cautions: hardcoded, 이미지 크기에 따라 figsize 를 조정해야 할 수 있습니다. T.T
-        plt.subplots_adjust(top=0.8)  # cautions: hardcoded, 이미지 크기에 따라 top 를 조정해야 할 수 있습니다. T.T
+        plt.subplots_adjust(
+            top=0.8
+        )  # cautions: hardcoded, 이미지 크기에 따라 top 를 조정해야 할 수 있습니다. T.T
         n_grid = int(np.ceil(n**0.5))
         tasks = ["mask", "gender", "age"]
         for idx, choice in enumerate(choices):
@@ -96,7 +98,9 @@ class Multi_coord_fTrainer:
             title = "\n".join(
                 [
                     f"{task} - gt: {gt_label}, pred: {pred_label}"
-                    for gt_label, pred_label, task in zip(gt_decoded_labels, pred_decoded_labels, tasks)
+                    for gt_label, pred_label, task in zip(
+                        gt_decoded_labels, pred_decoded_labels, tasks
+                    )
                 ]
             )
 
@@ -149,14 +153,18 @@ class Multi_coord_fTrainer:
         counter = 0
 
         # -- dataset
-        dataset_module = getattr(import_module("dataset"), args.dataset)  # default: MaskBaseDataset
+        dataset_module = getattr(
+            import_module("dataset"), args.dataset
+        )  # default: MaskBaseDataset
         dataset = dataset_module(
             data_dir=self.data_dir,
         )
         num_classes = dataset.num_classes  # 18
 
         # -- augmentation
-        transform_module = getattr(import_module("dataset"), args.augmentation)  # default: BaseAugmentation
+        transform_module = getattr(
+            import_module("dataset"), args.augmentation
+        )  # default: BaseAugmentation
         transform = transform_module(
             resize=args.resize,
             mean=dataset.mean,
@@ -169,12 +177,17 @@ class Multi_coord_fTrainer:
 
         labels = [
             dataset.encode_multi_class(mask, gender, age)
-            for mask, gender, age in zip(dataset.mask_labels, dataset.gender_labels, dataset.age_labels)
+            for mask, gender, age in zip(
+                dataset.mask_labels, dataset.gender_labels, dataset.age_labels
+            )
         ]
         class_counts = Counter(labels)
         total_samples = len(labels)
         indices = train_set.indices
-        class_weights = {class_label: total_samples / count for class_label, count in class_counts.items()}
+        class_weights = {
+            class_label: total_samples / count
+            for class_label, count in class_counts.items()
+        }
         weights = [class_weights[labels[i]] for i in indices]
 
         # -- data_loader
@@ -212,24 +225,54 @@ class Multi_coord_fTrainer:
             model.to(device)
 
         train_params_m = [
-            {"params": getattr(model, "mask_classifier").parameters(), "lr": args.lr, "weight_decay": 5e-4},
-            {"params": getattr(model, "backbone1").parameters(), "lr": args.lr / 10, "weight_decay": 5e-4},
+            {
+                "params": getattr(model, "mask_classifier").parameters(),
+                "lr": args.lr,
+                "weight_decay": 5e-4,
+            },
+            {
+                "params": getattr(model, "backbone1").parameters(),
+                "lr": args.lr / 10,
+                "weight_decay": 5e-4,
+            },
         ]
         train_params_g = [
-            {"params": getattr(model, "gender_classifier").parameters(), "lr": args.lr, "weight_decay": 5e-4},
-            {"params": getattr(model, "backbone1").parameters(), "lr": args.lr / 10, "weight_decay": 5e-4},
+            {
+                "params": getattr(model, "gender_classifier").parameters(),
+                "lr": args.lr,
+                "weight_decay": 5e-4,
+            },
+            {
+                "params": getattr(model, "backbone1").parameters(),
+                "lr": args.lr / 10,
+                "weight_decay": 5e-4,
+            },
         ]
         train_params_a = [
-            {"params": getattr(model, "age_classifier").parameters(), "lr": args.lr, "weight_decay": 5e-4},
-            {"params": getattr(model, "backbone2").parameters(), "lr": args.lr / 10, "weight_decay": 5e-4},
+            {
+                "params": getattr(model, "age_classifier").parameters(),
+                "lr": args.lr,
+                "weight_decay": 5e-4,
+            },
+            {
+                "params": getattr(model, "backbone2").parameters(),
+                "lr": args.lr / 10,
+                "weight_decay": 5e-4,
+            },
         ]
 
         model = torch.nn.DataParallel(model)
 
         # -- loss & metric
-        m_cls_weight = self.compute_class_weights(torch.tensor(dataset.mask_labels, device=device))
-        g_cls_weight = self.compute_class_weights(torch.tensor(dataset.gender_labels, device=device))
-        a_cls_weight = self.compute_class_weights(torch.tensor(dataset.age_labels, device=device))
+        m_cls_weight = self.compute_class_weights(
+            torch.tensor(dataset.mask_labels, device=device)
+        )
+        g_cls_weight = self.compute_class_weights(
+            torch.tensor(dataset.gender_labels, device=device)
+        )
+        a_cls_weight = self.compute_class_weights(
+            torch.tensor(dataset.age_labels, device=device)
+        )
 
         if args.criterion == "focal":
             m_criterion = create_criterion(args.criterion, alpha=m_cls_weight)
@@ -284,7 +327,7 @@ class Multi_coord_fTrainer:
 
                 # mask_output, gender_output, age_output = model(inputs)
                 # mask_output이 나오는 경로와 gender_output이 나오는 경로는 겹치지 않는다
-                
+
                 optimizer_a.zero_grad()
 
                 mask_output, gender_output, age_output = model(inputs)
@@ -308,7 +351,7 @@ class Multi_coord_fTrainer:
                 optimizer_m.step()
 
                 optimizer_g.zero_grad()
-                
+
                 mask_output, gender_output, age_output = model(inputs)
 
                 if args.criterion == "focal":
@@ -318,7 +361,6 @@ class Multi_coord_fTrainer:
 
                 gender_loss.backward()
                 optimizer_g.step()
-                
 
                 sum_loss = mask_loss + gender_loss + age_loss
                 # sum_loss.backward()
@@ -355,8 +397,12 @@ class Multi_coord_fTrainer:
                         f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)}) || "
                         f"training loss {train_loss:4.4} m_loss {m_loss:4.4} g_loss {g_loss:4.4} a_loss {a_loss:4.4} || training accuracy {train_acc:4.2%} m_acc {m_acc:4.2%} g_acc {g_acc:4.2%} a_acc {a_acc:4.2%} || lr {current_lr}"
                     )
-                    logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
-                    logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
+                    logger.add_scalar(
+                        "Train/loss", train_loss, epoch * len(train_loader) + idx
+                    )
+                    logger.add_scalar(
+                        "Train/accuracy", train_acc, epoch * len(train_loader) + idx
+                    )
 
                     loss_value = 0
                     m_value = 0
@@ -384,7 +430,9 @@ class Multi_coord_fTrainer:
                     inputs, labels = val_batch
                     inputs = inputs.to(device)
                     labels = labels.to(device)
-                    mask_label, gender_label, age_label = dataset.decode_multi_class(labels)
+                    mask_label, gender_label, age_label = dataset.decode_multi_class(
+                        labels
+                    )
 
                     # outs = model(inputs)
                     mask_output, gender_output, age_output = model(inputs)
@@ -411,12 +459,22 @@ class Multi_coord_fTrainer:
                     val_acc_items.append(acc_item)
 
                     # F1 score 계산
-                    f1_item = f1_score(labels.cpu().numpy(), preds.cpu().numpy(), average="macro")
+                    f1_item = f1_score(
+                        labels.cpu().numpy(), preds.cpu().numpy(), average="macro"
+                    )
                     val_f1_items.append(f1_item)
 
                     if figure is None:
-                        inputs_np = torch.clone(inputs).detach().cpu().permute(0, 2, 3, 1).numpy()
-                        inputs_np = dataset_module.denormalize_image(inputs_np, dataset.mean, dataset.std)
+                        inputs_np = (
+                            torch.clone(inputs)
+                            .detach()
+                            .cpu()
+                            .permute(0, 2, 3, 1)
+                            .numpy()
+                        )
+                        inputs_np = dataset_module.denormalize_image(
+                            inputs_np, dataset.mean, dataset.std
+                        )
                         figure = self.grid_image(
                             inputs_np,
                             labels,
@@ -442,13 +500,17 @@ class Multi_coord_fTrainer:
                 }
 
                 if val_acc > best_val_acc:
-                    print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
+                    print(
+                        f"New best model for val accuracy : {val_acc:4.2%}! saving the best model.."
+                    )
 
                     torch.save(state, f"{save_dir}/best_acc.pth")
                     best_val_acc = val_acc
 
                 if val_f1 > best_val_f1:
-                    print(f"New best model for val f1 : {val_f1:2.4}! saving the best model..")
+                    print(
+                        f"New best model for val f1 : {val_f1:2.4}! saving the best model.."
+                    )
                     torch.save(state, f"{save_dir}/best.pth")
                     best_val_f1 = val_f1
                     counter = 0
