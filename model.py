@@ -915,6 +915,7 @@ class DualEfficient(nn.Module):
         mask_output = self.mask_classifier(m_features)
         gender_output = self.gender_classifier(ga_features)
         age_output = self.age_classifier(ga_features)
+
         return mask_output, gender_output, age_output
 
     def initialize_weights(self, model):
@@ -922,8 +923,10 @@ class DualEfficient(nn.Module):
         He 가중치 초기화
         """
         for m in model.modules():
-            if isinstance(m, nn.Conv2d):
-                init.xavier_uniform_(m.weight.data)
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(
+                    m.weight, mode="fan_in", nonlinearity="leaky_relu"
+                )
                 if m.bias is not None:
                     m.bias.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):

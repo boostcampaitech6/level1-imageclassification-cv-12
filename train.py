@@ -18,6 +18,15 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # --name 은 각자의 이름 이니셜 들어가도록 허고 --data_dir 은 각자 서버에 있는 removed_background 로
 #
 #############################################################################################################################################
+#############################################################################################################################################
+#
+# python train.py --seed 6074 --epochs 30 --trainer Multi_coord_f --early_stopping 5 --dataset MaskSplitByProfileDataset --augmentation CustomAugmentation
+# --resize 224 224 --batch_size 32 --valid_batch_size 500 --model EfficientNetViT --optimizer AdamW --criterion focal --lr_decay_step 10
+# --name bkh_202312201600 --data_dir /data/ephemeral/home/removed_background --model_dir ./model/202312201600
+#
+# --name 은 각자의 이름 이니셜 들어가도록 허고 --data_dir 은 각자 서버에 있는 removed_background 로
+#
+#############################################################################################################################################
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -123,13 +132,6 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--model_dir", type=str, default=os.environ.get("SM_MODEL_DIR", "./model")
-    )
-
-    parser.add_argument(
-        "--resume_dir",
-        type=str,
-        default=None,
-        help="path to latest checkpoint (default: None)",
     )
 
     args = parser.parse_args()

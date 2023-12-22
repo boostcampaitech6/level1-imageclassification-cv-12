@@ -314,12 +314,12 @@ class MultiTrainer:
                     gender_loss = criterion(gender_output, gender_label)
                     age_loss = criterion(age_output, age_label)
 
-                mask_loss.backward(retain_graph=True)
-                gender_loss.backward(retain_graph=True)
-                age_loss.backward()
+                # mask_loss.backward(retain_graph=True)
+                # gender_loss.backward(retain_graph=True)
+                # age_loss.backward()
 
-                sum_loss = mask_loss + gender_loss + age_loss
-                # sum_loss.backward()
+                sum_loss = mask_loss + gender_loss + 1.5 * age_loss
+                sum_loss.backward()
 
                 mask_pred = torch.argmax(mask_output, dim=-1)
                 gender_pred = torch.argmax(gender_output, dim=-1)
@@ -407,7 +407,7 @@ class MultiTrainer:
                         gender_loss = criterion(gender_output, gender_label)
                         age_loss = criterion(age_output, age_label)
 
-                    sum_loss = mask_loss + gender_loss + age_loss
+                    sum_loss = mask_loss + gender_loss + 1.5 * age_loss
 
                     loss_item = (sum_loss).item()
                     acc_item = (labels == preds).sum().item()
