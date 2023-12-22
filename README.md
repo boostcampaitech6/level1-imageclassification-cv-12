@@ -42,18 +42,19 @@ COVID-19 바이러스는 주로 입과 호흡기에서 나오는 비말을 통�
 따라서 카메라로 촬영된 얼굴 이미지를 통해 이미지내의 사람의 성별, 연령 그리고 마스크 착용 여부를 분류하는 모델을 개발하는 것이 목표
 
 input: 4,500명의 사람들의 이미지 및 train.csv
-output: test 이미지에 대한 분류 값 (18개 클래스)
-train.csv
+output: test 이미지에 대한 분류 값 (18개 클래스)   
+
+train.csv   
 ![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/data_1.png)   
    
-train image input
+train image input   
 ![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/data_2.png)
 - - -
 ### 결과
-val graph
+val graph   
 ![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/graph.png)   
 
-결 과
+결 과   
 ![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/result.png)
 - - -
 ### Details
