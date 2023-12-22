@@ -44,16 +44,16 @@ COVID-19 바이러스는 주로 입과 호흡기에서 나오는 비말을 통�
 input: 4,500명의 사람들의 이미지 및 train.csv
 output: test 이미지에 대한 분류 값 (18개 클래스)
 train.csv
-![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/tree/main/asset/data_1.png)
+![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/data_1.png)
 train image input
-![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/tree/main/asset/data_2.png)
+![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/data_2.png)
 - - -
 ### 결과
 val graph
-![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/tree/main/asset/graph.png)
+![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/graph.png)
 
 결 과
-![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/tree/main/asset/result.png)
+![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/result.png)
 - - -
 ### Details
 
