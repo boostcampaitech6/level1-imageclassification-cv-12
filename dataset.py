@@ -539,8 +539,8 @@ class TestDataset(Dataset):
         self,
         img_paths,
         resize,
-        mean=(0.20696366, 0.16345932, 0.15741424),
-        std=(0.2702278, 0.22756001, 0.21942027),
+        mean=(0.2409401, 0.19878025, 0.186334),
+        std=(0.29069433, 0.25123745, 0.24154018),
     ):
         self.img_paths = img_paths
         self.transform = Compose(

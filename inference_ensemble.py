@@ -45,7 +45,7 @@ def load_model(model_name, saved_model, num_classes, device):
 
 
 @torch.no_grad()
-def inference(data_dir, model_dir, output_dir, args):
+def inference(data_dir, model_dirs, output_dir, args):
     """
     모델 추론을 수행하는 함수
 
@@ -82,7 +82,7 @@ def inference(data_dir, model_dir, output_dir, args):
     for i in range(len(args.scores)):
         # 클래스의 개수를 설정한다. (마스크, 성별, 나이의 조합으로 18)
         num_classes = MaskBaseDataset.num_classes  # 18
-        model = load_model(args.models[i], model_dir[i], num_classes, device).to(device)
+        model = load_model(args.models[i], model_dirs[i], num_classes, device).to(device)
         model.eval()
 
         dataset = TestDataset(img_paths, args.resize[2 * i : 2 * i + 2])
@@ -103,26 +103,32 @@ def inference(data_dir, model_dir, output_dir, args):
         print("Calculating inference results..")
         with torch.no_grad():
             for idx, images in enumerate(loader):
+                # breakpoint()
                 images = images.to(device)
                 mask_output, gender_output, age_output = model(images)
 
-                mask_output = smax(mask_output) * args.scores[i] / total_score
-                gender_output = smax(gender_output) * args.scores[i] / total_score
-                age_output = smax(age_output) * args.scores[i] / total_score
+                mask_output = smax(mask_output)
+                mask_output = mask_output * args.scores[i] / total_score
+                gender_output = smax(gender_output)
+                gender_output = gender_output * args.scores[i] / total_score
+                age_output = smax(age_output)
+                age_output = age_output * args.scores[i] / total_score
 
                 mask_output = mask_output.cpu().numpy()
-                gender_output = mask_output.cpu().numpy()
-                age_output = mask_output.cpu().numpy()
+                gender_output = gender_output.cpu().numpy()
+                age_output = age_output.cpu().numpy()
 
                 length = images.size(0)
                 if length == args.batch_size:
-                    preds_soft_mask[i * length : (i + 1) * length, :] += mask_output
-                    preds_soft_gender[i * length : (i + 1) * length, :] += gender_output
-                    preds_soft_age[i * length : (i + 1) * length, :] += age_output
+                    preds_soft_mask[idx * length : (idx + 1) * length, :] += mask_output
+                    preds_soft_gender[idx * length : (idx + 1) * length, :] += gender_output
+                    preds_soft_age[idx * length : (idx + 1) * length, :] += age_output
                 else:
-                    preds_soft_mask[i * args.batch_size : i * args.batch_size + length, :] += mask_output
-                    preds_soft_gender[i * args.batch_size : i * args.batch_size + length, :] += gender_output
-                    preds_soft_age[i * args.batch_size : i * args.batch_size + length, :] += age_output
+                    preds_soft_mask[idx * args.batch_size : idx * args.batch_size + length, :] += mask_output
+                    preds_soft_gender[
+                        idx * args.batch_size : idx * args.batch_size + length, :
+                    ] += gender_output
+                    preds_soft_age[idx * args.batch_size : idx * args.batch_size + length, :] += age_output
 
     mask_preds = np.argmax(preds_soft_mask, axis=1)
     gender_preds = np.argmax(preds_soft_gender, axis=1)
@@ -138,6 +144,75 @@ def inference(data_dir, model_dir, output_dir, args):
     print(f"Inference Done! Inference result saved at {save_path}")
 
 
+# if __name__ == "__main__":
+#     # 커맨드 라인 인자를 파싱한다.
+#     parser = argparse.ArgumentParser()
+
+#     # 데이터와 모델 체크포인트 디렉터리 관련 인자
+#     parser.add_argument(
+#         "--batch_size",
+#         type=int,
+#         default=500,
+#         help="input batch size for validing (default: 500)",
+#     )
+#     parser.add_argument(
+#         "--resize",
+#         nargs=12,
+#         type=int,
+#         default=(128, 96, 128, 96, 128, 96, 128, 96, 128, 96, 128, 96),
+#         help="resize size for image when you trained (default: (128, 96))",
+#     )
+#     parser.add_argument(
+#         "--models",
+#         nargs=6,
+#         type=str,
+#         default=("BaseModel", "BaseModel", "BaseModel", "BaseModel", "BaseModel", "BaseModel"),
+#         help="model type (default: BaseModel x 6)",
+#     )
+#     parser.add_argument(
+#         "--scores",
+#         nargs=6,
+#         type=float,
+#         default=(0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
+#         help="model type (default: BaseModel x 6)",
+#     )
+
+#     # 컨테이너 환경 변수
+#     parser.add_argument(
+#         "--data_dir",
+#         type=str,
+#         default=os.environ.get("SM_CHANNEL_EVAL", "/opt/ml/input/data/eval"),
+#     )
+#     parser.add_argument(
+#         "--model_dirs",
+#         nargs=6,
+#         type=str,
+#         default=(
+#             os.environ.get("SM_CHANNEL_MODEL", "./model/exp"),
+#             os.environ.get("SM_CHANNEL_MODEL", "./model/exp"),
+#             os.environ.get("SM_CHANNEL_MODEL", "./model/exp"),
+#             os.environ.get("SM_CHANNEL_MODEL", "./model/exp"),
+#             os.environ.get("SM_CHANNEL_MODEL", "./model/exp"),
+#             os.environ.get("SM_CHANNEL_MODEL", "./model/exp"),
+#         ),
+#     )
+#     parser.add_argument(
+#         "--output_dir",
+#         type=str,
+#         default=os.environ.get("SM_OUTPUT_DATA_DIR", "./output"),
+#     )
+
+#     args = parser.parse_args()
+
+#     data_dir = args.data_dir
+#     model_dirs = args.model_dirs
+#     output_dir = args.output_dir
+
+#     os.makedirs(output_dir, exist_ok=True)
+
+#     # 모델 추론을 수행한다.
+#     inference(data_dir, model_dirs, output_dir, args)
+
 if __name__ == "__main__":
     # 커맨드 라인 인자를 파싱한다.
     parser = argparse.ArgumentParser()
@@ -146,29 +221,29 @@ if __name__ == "__main__":
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=1000,
-        help="input batch size for validing (default: 1000)",
+        default=500,
+        help="input batch size for validing (default: 500)",
     )
     parser.add_argument(
         "--resize",
-        nargs=10,
+        nargs=6,
         type=int,
-        default=(128, 96, 128, 96, 128, 96, 128, 96, 128, 96),
+        default=(128, 96, 128, 96, 128, 96),
         help="resize size for image when you trained (default: (128, 96))",
     )
     parser.add_argument(
         "--models",
-        nargs=5,
+        nargs=3,
         type=str,
-        default=("BaseModel", "BaseModel", "BaseModel", "BaseModel", "BaseModel"),
-        help="model type (default: BaseModel x 5)",
+        default=("BaseModel", "BaseModel", "BaseModel"),
+        help="model type (default: BaseModel x 3)",
     )
     parser.add_argument(
         "--scores",
-        nargs=5,
-        type=int,
-        default=(0.5, 0.5, 0.5, 0.5, 0.5),
-        help="model type (default: BaseModel x 5)",
+        nargs=3,
+        type=float,
+        default=(0.5, 0.5, 0.5),
+        help="model type (default: BaseModel x 3)",
     )
 
     # 컨테이너 환경 변수
@@ -179,11 +254,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--model_dirs",
-        nargs=5,
+        nargs=3,
         type=str,
         default=(
-            os.environ.get("SM_CHANNEL_MODEL", "./model/exp"),
-            os.environ.get("SM_CHANNEL_MODEL", "./model/exp"),
             os.environ.get("SM_CHANNEL_MODEL", "./model/exp"),
             os.environ.get("SM_CHANNEL_MODEL", "./model/exp"),
             os.environ.get("SM_CHANNEL_MODEL", "./model/exp"),
@@ -198,10 +271,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     data_dir = args.data_dir
-    model_dir = args.model_dir
+    model_dirs = args.model_dirs
     output_dir = args.output_dir
 
     os.makedirs(output_dir, exist_ok=True)
 
     # 모델 추론을 수행한다.
-    inference(data_dir, model_dir, output_dir, args)
+    inference(data_dir, model_dirs, output_dir, args)
