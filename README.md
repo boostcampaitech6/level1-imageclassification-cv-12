@@ -53,8 +53,7 @@ train image input
 ### 결과
 val graph   
 ![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/graph.png)   
-
-결 과   
+   
 ![image](https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/result.png)
 - - -
 ### Details
