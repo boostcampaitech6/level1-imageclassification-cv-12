@@ -284,7 +284,7 @@ class Multi_coord_fTrainer:
 
                 # mask_output, gender_output, age_output = model(inputs)
                 # mask_output이 나오는 경로와 gender_output이 나오는 경로는 겹치지 않는다
-                
+
                 optimizer_a.zero_grad()
 
                 mask_output, gender_output, age_output = model(inputs)
@@ -308,7 +308,7 @@ class Multi_coord_fTrainer:
                 optimizer_m.step()
 
                 optimizer_g.zero_grad()
-                
+
                 mask_output, gender_output, age_output = model(inputs)
 
                 if args.criterion == "focal":
@@ -318,7 +318,6 @@ class Multi_coord_fTrainer:
 
                 gender_loss.backward()
                 optimizer_g.step()
-                
 
                 sum_loss = mask_loss + gender_loss + age_loss
                 # sum_loss.backward()
