@@ -132,6 +132,34 @@ class CustomAugmentation:
         return augmented["image"]
 
 
+class CustomAugmentationPreProcessed:
+
+    """커스텀 Augmentation을 담당하는 클래스 -> albumentations 사용"""
+
+    def __init__(self, resize, mean, std, **args):
+        self.transform = A.Compose(
+            [
+                # A.CenterCrop(height=320, width=256),
+                A.Resize(*resize, interpolation=0),
+                A.ElasticTransform(
+                    p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03
+                ),
+                A.HorizontalFlip(p=0.5),
+                A.ShiftScaleRotate(p=0.5),
+                A.RandomBrightnessContrast(
+                    brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5
+                ),
+                A.Normalize(mean=mean, std=std),
+                ToTensorV2(),
+            ]
+        )
+
+    def __call__(self, img):
+        augmented = self.transform(image=np.array(img).astype(np.uint8))
+
+        return augmented["image"]
+
+
 class MaskLabels(int, Enum):
     """마스크 라벨을 나타내는 Enum 클래스"""
 
