@@ -16,13 +16,13 @@
 │       └── info.csv
 │
 ├── trainer
-│   ├── utils
-│   │   ├── __init__.py
-│   │   ├── aws_s3_downloader.py
-│   │   └── utils.py
-│   │
-│   ├── __init__.py
-│   └── pytorch_kobert.py
+│   ├── multi_coord_f_trainer.py
+│   ├── multi_coord_trainer.py
+│   ├── multi_f_trainer.py
+│   ├── multi_trainer.py
+│   ├── single_trainer.py
+│   ├── skf_multi_trainer.py
+│   └── skf_single_trainer.py
 │
 ├── dataset.py
 ├── loss.py
