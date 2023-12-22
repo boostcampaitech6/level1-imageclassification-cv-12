@@ -16,16 +16,13 @@ from torchvision.transforms import (
     CenterCrop,
     ColorJitter,
 )
-
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-# https://github.com/mahmoudnafifi/WB_color_augmenter
-# https://colab.research.google.com/drive/1wbUW87MoXabdzDh53YWoOXrvOdjpubQ4?usp=sharing#scrollTo=T226o1Jb64P3
-# Mahmoud Afifi and Michael S. Brown. What Else Can Fool Deep Learning? Addressing Color Constancy Errors on Deep Neural Network Performance. International Conference on Computer Vision (ICCV), 2019.
-from WBAugmenter import WBEmulator as wbAug
 from tqdm import tqdm
 import pickle
+
+from sklearn.model_selection import train_test_split
 
 
 # 지원되는 이미지 확장자 리스트
@@ -102,7 +99,9 @@ class AddGaussianNoise(object):
         return tensor + torch.randn(tensor.size()) * self.std + self.mean
 
     def __repr__(self):
-        return self.__class__.__name__ + "(mean={0}, std={1})".format(self.mean, self.std)
+        return self.__class__.__name__ + "(mean={0}, std={1})".format(
+            self.mean, self.std
+        )
 
 
 class CustomAugmentation:
@@ -114,18 +113,13 @@ class CustomAugmentation:
             [
                 A.CenterCrop(height=320, width=256),
                 A.Resize(*resize, interpolation=0),
-                A.ElasticTransform(p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
+                A.ElasticTransform(
+                    p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03
+                ),
                 A.HorizontalFlip(p=0.5),
                 A.ShiftScaleRotate(p=0.5),
-                A.RandomBrightnessContrast(brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5),
-                A.GaussNoise(),
-                A.CoarseDropout(
-                    max_holes=10,
-                    max_height=8,
-                    max_width=8,
-                    min_holes=None,
-                    min_height=5,
-                    min_width=5,
+                A.RandomBrightnessContrast(
+                    brightness_limit=(-0.5, 0.5), contrast_limit=(-0.3, 0.3), p=0.5
                 ),
                 A.Normalize(mean=mean, std=std),
                 ToTensorV2(),
@@ -161,7 +155,9 @@ class GenderLabels(int, Enum):
         elif value == "female":
             return cls.FEMALE
         else:
-            raise ValueError(f"Gender value should be either 'male' or 'female', {value}")
+            raise ValueError(
+                f"Gender value should be either 'male' or 'female', {value}"
+            )
 
 
 class AgeLabels(int, Enum):
@@ -179,9 +175,9 @@ class AgeLabels(int, Enum):
         except Exception:
             raise ValueError(f"Age value should be numeric, {value}")
 
-        if value < 30:
+        if value < 27:
             return cls.YOUNG
-        elif value < 60:
+        elif value < 56:
             return cls.MIDDLE
         else:
             return cls.OLD
@@ -210,8 +206,8 @@ class MaskBaseDataset(Dataset):
     def __init__(
         self,
         data_dir,
-        mean=(0.548, 0.504, 0.479),
-        std=(0.237, 0.247, 0.246),
+        mean=(0.20696366, 0.16345932, 0.15741424),
+        std=(0.2702278, 0.22756001, 0.21942027),
         val_ratio=0.2,
         aug_prob=0.5,
     ):
@@ -223,45 +219,23 @@ class MaskBaseDataset(Dataset):
         self.transform = None
         self.setup()  # 데이터셋을 설정
         self.calc_statistics()  # 통계시 계산 (평균 및 표준 편차)
-        self.wb_color_aug = wbAug.WBEmulator()
-        self.mapping = self.compute_mapping()
-        self.aug_prob = aug_prob
-
-    def compute_mapping(self):
-        """
-        White balance를 적용할 때 사용할 mapping을 만들고 불러오는 함수입니다
-
-        Returns:
-            List: white balance mapping을 담은 List를 반환합니다
-        """
-        temp = os.path.split(self.data_dir)[0]
-        if os.path.exists(os.path.join(temp, "wb_mfs.pickle")):
-            with open(os.path.join(temp, "wb_mfs.pickle"), "rb") as handle:
-                mapping_funcs = pickle.load(handle)
-            return mapping_funcs
-
-        print("Computing mapping functions for WB augmenter. " "This process may take time....")
-        mapping_funcs = []
-        for idx in tqdm(range(self.__len__())):
-            img = self.read_image(idx)
-            mfs = self.wb_color_aug.computeMappingFunc(img)
-            mapping_funcs.append(mfs)
-        with open(os.path.join(temp, "wb_mfs.pickle"), "wb") as handle:
-            pickle.dump(mapping_funcs, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        return mapping_funcs
+        self.labels = []
 
     def setup(self):
         """데이터 디렉토리로부터 이미지 경로와 라벨을 설정하는 메서드"""
         profiles = os.listdir(self.data_dir)
         for profile in profiles:
-            if profile.startswith(".") or profile.endswith('pickle'):  # "." 로 시작하는 파일은 무시합니다
+            if profile.startswith(".") or profile.endswith(
+                "pickle"
+            ):  # "." 로 시작하는 파일은 무시합니다
                 continue
 
             img_folder = os.path.join(self.data_dir, profile)
             for file_name in os.listdir(img_folder):
                 _file_name, ext = os.path.splitext(file_name)
-                if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
+                if (
+                    _file_name not in self._file_names
+                ):  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
                     continue
 
                 img_path = os.path.join(
@@ -277,12 +251,17 @@ class MaskBaseDataset(Dataset):
                 self.mask_labels.append(mask_label)
                 self.gender_labels.append(gender_label)
                 self.age_labels.append(age_label)
+                self.labels.append(
+                    self.encode_multi_class(mask_label, gender_label, age_label)
+                )
 
     def calc_statistics(self):
         """데이터셋의 통계치를 계산하는 메서드"""
         has_statistics = self.mean is not None and self.std is not None
         if not has_statistics:
-            print("[Warning] Calculating statistics... It can take a long time depending on your CPU machine")
+            print(
+                "[Warning] Calculating statistics... It can take a long time depending on your CPU machine"
+            )
             sums = []
             squared = []
             for image_path in self.image_paths[:3000]:
@@ -307,12 +286,6 @@ class MaskBaseDataset(Dataset):
         age_label = self.get_age_label(index)
         multi_class_label = self.encode_multi_class(mask_label, gender_label, age_label)
 
-        if random.random() < self.aug_prob:
-            mfs = self.mapping[index]
-            ind = np.random.randint(len(mfs))
-            mf = mfs[ind]
-            image = wbAug.changeWB(np.array(image), mf)
-
         image_transform = self.transform(image)
         return image_transform, multi_class_label
 
@@ -335,7 +308,7 @@ class MaskBaseDataset(Dataset):
     def read_image(self, index):
         """인덱스에 해당하는 이미지를 읽는 메서드"""
         image_path = self.image_paths[index]
-        return Image.open(image_path)
+        return Image.open(image_path).convert("RGB")
 
     @staticmethod
     def encode_multi_class(mask_label, gender_label, age_label) -> int:
@@ -362,14 +335,29 @@ class MaskBaseDataset(Dataset):
         img_cp = np.clip(img_cp, 0, 255).astype(np.uint8)
         return img_cp
 
-    def split_dataset(self) -> Tuple[Subset, Subset]:
+    def split_dataset(self, startify=True) -> Tuple[Subset, Subset]:
         """데이터셋을 학습과 검증용으로 나누는 메서드
         데이터셋을 train 과 val 로 나눕니다,
         pytorch 내부의 torch.utils.data.random_split 함수를 사용하여 torch.utils.data.Subset 클래스 둘로 나눕니다.
+
+        sklearn 의 train_test_split 을 이용하여 startify 기능을 구현합니다.
         """
-        n_val = int(len(self) * self.val_ratio)
-        n_train = len(self) - n_val
-        train_set, val_set = random_split(self, [n_train, n_val])
+
+        if startify:
+            train_idx, valid_idx = train_test_split(
+                np.arrange(len(self.labels)),
+                test_size=self.val_ratio,
+                shuffle=True,
+                startify=self.labels,
+            )
+        else:
+            n_val = int(len(self) * self.val_ratio)
+            n_train = len(self) - n_val
+            train_set, val_set = random_split(self, [n_train, n_val])
+
+        train_set = Subset(self, train_idx)
+        val_set = Subset(self, valid_idx)
+
         return train_set, val_set
 
 
@@ -383,8 +371,8 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
     def __init__(
         self,
         data_dir,
-        mean=(0.548, 0.504, 0.479),
-        std=(0.237, 0.247, 0.246),
+        mean=(0.20696366, 0.16345932, 0.15741424),
+        std=(0.2702278, 0.22756001, 0.21942027),
         val_ratio=0.2,
         aug_prob=0.5,
     ):
@@ -392,31 +380,54 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
         super().__init__(data_dir, mean, std, val_ratio, aug_prob)
 
     @staticmethod
-    def _split_profile(profiles, val_ratio):
+    def _split_profile(profiles, val_ratio, labels):
         """프로필을 학습과 검증용으로 나누는 메서드"""
         length = len(profiles)
-        n_val = int(length * val_ratio)
 
-        val_indices = set(random.sample(range(length), k=n_val))
-        train_indices = set(range(length)) - val_indices
-        return {"train": train_indices, "val": val_indices}
+        train_idx, val_idx = train_test_split(
+            range(length), test_size=val_ratio, shuffle=True, stratify=labels
+        )
+        return {"train": train_idx, "val": val_idx}
+
+    def _extract_labels(self, profiles):
+        """
+        MaskSplitByProfileDataset 에서 startified_split을 위해서, 프로필에서 성별 및 나이 정보를 추출하여 라벨을 생성하는 메서드
+        """
+        labels = []
+        for profile in profiles:
+            id, gender, race, age = profile.split("_")
+            gender_label = GenderLabels.from_str(gender)
+            age_label = AgeLabels.from_number(age)
+            labels.append(
+                self.encode_multi_class(0, gender_label, age_label)
+            )  # 마스크 라벨은 0으로 설정
+        return labels
 
     def setup(self):
-        """데이터셋 설정을 하는 메서드. 프로필 기준으로 나눈다."""
+        """
+        데이터셋 설정을 하는 메서드. 프로필 기준으로 나눈다. 나눌 때, 나이와 성별로 stratified_split 을 진행한다.
+        """
         profiles = os.listdir(self.data_dir)
-        profiles = [profile for profile in profiles if not profile.startswith(".")]
-        split_profiles = self._split_profile(profiles, self.val_ratio)
+        profiles = [
+            profile
+            for profile in profiles
+            if not (profile.startswith(".") or profile.endswith("pickle"))
+        ]
+        labels = self._extract_labels(profiles)
+        split_profiles = self._split_profile(profiles, self.val_ratio, labels)
 
         cnt = 0
         for phase, indices in split_profiles.items():
             for _idx in indices:
                 profile = profiles[_idx]
                 img_folder = os.path.join(self.data_dir, profile)
-                if img_folder.endswith('pickle'):
+                if img_folder.endswith("pickle"):
                     continue
                 for file_name in os.listdir(img_folder):
                     _file_name, ext = os.path.splitext(file_name)
-                    if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
+                    if (
+                        _file_name not in self._file_names
+                    ):  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
                         continue
 
                     img_path = os.path.join(
@@ -450,38 +461,12 @@ class BalancedDataset(MaskSplitByProfileDataset):
     def __init__(
         self,
         data_dir,
-        mean=(0.548, 0.504, 0.479),
-        std=(0.237, 0.247, 0.246),
+        mean=(0.20696366, 0.16345932, 0.15741424),
+        std=(0.2702278, 0.22756001, 0.21942027),
         val_ratio=0.2,
         aug_prob=0.5,
     ):
         super().__init__(data_dir, mean, std, val_ratio, aug_prob)
-
-    def compute_mapping(self):
-        """
-        MaskBaseDataset의 compute_mapping 함수를 override 합니다
-        데이터 갯수가 늘어난 상태에서 기존의 wb_mfs.pickle 파일을 사용하면 에러가 발생하므로
-        wb_mfs_c.pickle를 새로 생성합니다
-
-        Returns:
-            List: white balance mapping을 담은 List를 반환합니다
-        """
-        temp = os.path.split(self.data_dir)[0]
-        if os.path.exists(os.path.join(temp, "wb_mfs_c.pickle")):
-            with open(os.path.join(temp, "wb_mfs_c.pickle"), "rb") as handle:
-                mapping_funcs = pickle.load(handle)
-            return mapping_funcs
-
-        print("Computing mapping functions for WB augmenter. " "This process may take time....")
-        mapping_funcs = []
-        for idx in tqdm(range(self.__len__())):
-            img = self.read_image(idx)
-            mfs = self.wb_color_aug.computeMappingFunc(img)
-            mapping_funcs.append(mfs)
-        with open(os.path.join(temp, "wb_mfs_c.pickle"), "wb") as handle:
-            pickle.dump(mapping_funcs, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        return mapping_funcs
 
     def setup(self):
         """
@@ -499,13 +484,15 @@ class BalancedDataset(MaskSplitByProfileDataset):
             for _idx in indices:
                 profile = profiles[_idx]
                 img_folder = os.path.join(self.data_dir, profile)
-                if img_folder.endswith('pickle'):
+                if img_folder.endswith("pickle"):
                     continue
                 for file_name in os.listdir(img_folder):
                     # file_name은 'incorrect_mask.jpg' 'mask4.jpg' 이런 형태
                     _file_name, ext = os.path.splitext(file_name)
                     # 파일 확장자 분리
-                    if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
+                    if (
+                        _file_name not in self._file_names
+                    ):  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
                         continue
 
                     img_path = os.path.join(
@@ -555,7 +542,13 @@ class BalancedDataset(MaskSplitByProfileDataset):
 class TestDataset(Dataset):
     """테스트 데이터셋 클래스"""
 
-    def __init__(self, img_paths, resize, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246)):
+    def __init__(
+        self,
+        img_paths,
+        resize,
+        mean=(0.2409401, 0.19878025, 0.186334),
+        std=(0.29069433, 0.25123745, 0.24154018),
+    ):
         self.img_paths = img_paths
         self.transform = Compose(
             [
@@ -567,7 +560,7 @@ class TestDataset(Dataset):
 
     def __getitem__(self, index):
         """인덱스에 해당하는 데이터를 가져오는 메서드"""
-        image = Image.open(self.img_paths[index])
+        image = Image.open(self.img_paths[index]).convert("RGB")
 
         if self.transform:
             image = self.transform(image)

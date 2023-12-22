@@ -23,7 +23,8 @@ from loss import create_criterion
 from sklearn.metrics import f1_score
 
 import warnings
-warnings.filterwarnings("ignore", category=UserWarning) 
+
+warnings.filterwarnings("ignore", category=UserWarning)
 
 
 class Multi_fTrainer:
@@ -34,7 +35,7 @@ class Multi_fTrainer:
     4. Stratified k-fold 구현 - args.k_limits 로 분할 횟수 설정
     5. WeightedRandomSampler 구현
     """
-    
+
     def __init__(self, data_dir, model_dir, args):
         """
         Args:
@@ -44,14 +45,14 @@ class Multi_fTrainer:
             args.k_limits: k for Stratified k-fold (default: 1)
             ...
         """
-        
+
         self.data_dir = data_dir
         self.model_dir = model_dir
-        
+
         wandb.init(
-        project="Boostcamp_Mask_ImageClassification",
-        notes="",
-        config={
+            project="Boostcamp_Mask_ImageClassification",
+            notes="",
+            config={
                 "Architecture": args.model,
                 "Img_size": args.resize,
                 "Loss": args.criterion,
@@ -71,11 +72,9 @@ class Multi_fTrainer:
         np.random.seed(seed)
         random.seed(seed)
 
-
     def get_lr(self, optimizer):
         for param_group in optimizer.param_groups:
             return param_group["lr"]
-
 
     def grid_image(self, np_images, gts, preds, n=16, shuffle=False):
         batch_size = np_images.shape[0]
@@ -113,7 +112,6 @@ class Multi_fTrainer:
 
         return figure
 
-
     def increment_path(self, path, exist_ok=False):
         """Automatically increment path, i.e. runs/exp --> runs/exp0, runs/exp1 etc.
 
@@ -141,10 +139,8 @@ class Multi_fTrainer:
         total_samples = len(labels)
         class_weights = total_samples / (len(class_counts) * class_counts.float())
         return class_weights
-    
-    
+
     def train(self, args):
-        
         self.seed_everything(args.seed)
         save_dir = self.increment_path(os.path.join(self.model_dir, args.name))
 
@@ -155,7 +151,7 @@ class Multi_fTrainer:
         # -- early stopping flag
         patience = args.early_stopping
         counter = 0
-        
+
         # -- dataset
         dataset_module = getattr(
             import_module("dataset"), args.dataset
@@ -178,16 +174,26 @@ class Multi_fTrainer:
 
         # -- weightedRandomSampler
         train_set, val_set = dataset.split_dataset()
-        
-        labels = [dataset.encode_multi_class(mask, gender, age) for mask, gender, age in zip(dataset.mask_labels, dataset.gender_labels, dataset.age_labels)]
+
+        labels = [
+            dataset.encode_multi_class(mask, gender, age)
+            for mask, gender, age in zip(
+                dataset.mask_labels, dataset.gender_labels, dataset.age_labels
+            )
+        ]
         class_counts = Counter(labels)
         total_samples = len(labels)
         indices = train_set.indices
-        class_weights = {class_label: total_samples / count for class_label, count in class_counts.items()}
+        class_weights = {
+            class_label: total_samples / count
+            for class_label, count in class_counts.items()
+        }
         weights = [class_weights[labels[i]] for i in indices]
-        
+
         # -- data_loader
-        sampler = WeightedRandomSampler(weights=torch.Tensor(weights), num_samples=len(train_set), replacement=True)
+        sampler = WeightedRandomSampler(
+            weights=torch.Tensor(weights), num_samples=len(train_set), replacement=True
+        )
 
         train_loader = DataLoader(
             train_set,
@@ -207,37 +213,73 @@ class Multi_fTrainer:
             pin_memory=use_cuda,
             drop_last=True,
         )
-        
+
         # -- model
         model_module = getattr(import_module("model"), args.model)  # default: BaseModel
         model = model_module(num_classes=num_classes).to(device)
-        train_params = [{'params': getattr(model, 'backbone1').parameters(), 'lr': args.lr / 10, 'weight_decay':5e-4},
-                    {'params': getattr(model, 'backbone2').parameters(), 'lr': args.lr / 10, 'weight_decay':5e-4},
-                    {'params': getattr(model, 'mask_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
-                    {'params': getattr(model, 'gender_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4},
-                    {'params': getattr(model, 'age_classifier').parameters(), 'lr': args.lr, 'weight_decay':5e-4}]
-        
+
+        if args.resume_dir is not None:
+            resume_path = os.path.join(args.resume_dir, "last.pth")
+            load_dict = torch.load(resume_path)
+            model.load_state_dict(load_dict["model_state_dict"])
+            model.to(device)
+
+        train_params = [
+            {
+                "params": getattr(model, "backbone1").parameters(),
+                "lr": args.lr / 10,
+                "weight_decay": 5e-4,
+            },
+            {
+                "params": getattr(model, "backbone2").parameters(),
+                "lr": args.lr / 10,
+                "weight_decay": 5e-4,
+            },
+            {
+                "params": getattr(model, "mask_classifier").parameters(),
+                "lr": args.lr,
+                "weight_decay": 5e-4,
+            },
+            {
+                "params": getattr(model, "gender_classifier").parameters(),
+                "lr": args.lr,
+                "weight_decay": 5e-4,
+            },
+            {
+                "params": getattr(model, "age_classifier").parameters(),
+                "lr": args.lr,
+                "weight_decay": 5e-4,
+            },
+        ]
+
         model = torch.nn.DataParallel(model)
 
         # -- loss & metric
-        m_cls_weight = self.compute_class_weights(torch.tensor(dataset.mask_labels, device=device))
-        g_cls_weight = self.compute_class_weights(torch.tensor(dataset.gender_labels, device=device))
-        a_cls_weight = self.compute_class_weights(torch.tensor(dataset.age_labels, device=device))
-        
-        if args.criterion == 'focal':
+        m_cls_weight = self.compute_class_weights(
+            torch.tensor(dataset.mask_labels, device=device)
+        )
+        g_cls_weight = self.compute_class_weights(
+            torch.tensor(dataset.gender_labels, device=device)
+        )
+        a_cls_weight = self.compute_class_weights(
+            torch.tensor(dataset.age_labels, device=device)
+        )
+
+        if args.criterion == "focal":
             m_criterion = create_criterion(args.criterion, alpha=m_cls_weight)
             g_criterion = create_criterion(args.criterion, alpha=g_cls_weight)
             a_criterion = create_criterion(args.criterion, alpha=a_cls_weight)
         else:
             criterion = create_criterion(args.criterion)
-        opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
+        opt_module = getattr(
+            import_module("torch.optim"), args.optimizer
+        )  # default: SGD
         optimizer = opt_module(train_params)
-        # optimizer = opt_module(
-        #     filter(lambda p: p.requires_grad, model.parameters()),
-        #     lr=args.lr,
-        #     weight_decay=5e-4,
-        # )
-        scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
+        scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.1)
+
+        if args.resume_dir is not None:
+            optimizer.load_state_dict(load_dict["optimizer_state_dict"])
+            scheduler.load_state_dict(load_dict["scheduler_state_dict"])
 
         # -- logging
         logger = SummaryWriter(log_dir=save_dir)
@@ -249,18 +291,17 @@ class Multi_fTrainer:
         for epoch in range(args.epochs):
             # train loop
             model.train()
-            
+
             loss_value = 0
             m_value = 0
             g_value = 0
             a_value = 0
-            
+
             matches = 0
             mask_matches = 0
             gender_matches = 0
             age_matches = 0
-            
-            
+
             for idx, train_batch in enumerate(train_loader):
                 inputs, labels = train_batch
                 inputs = inputs.to(device)
@@ -270,8 +311,8 @@ class Multi_fTrainer:
                 optimizer.zero_grad()
 
                 mask_output, gender_output, age_output = model(inputs)
-                
-                if args.criterion == 'focal':
+
+                if args.criterion == "focal":
                     mask_loss = m_criterion(mask_output, mask_label)
                     gender_loss = g_criterion(gender_output, gender_label)
                     age_loss = a_criterion(age_output, age_label)
@@ -279,45 +320,40 @@ class Multi_fTrainer:
                     mask_loss = criterion(mask_output, mask_label)
                     gender_loss = criterion(gender_output, gender_label)
                     age_loss = criterion(age_output, age_label)
-                
-                # mask_loss.backward(retain_graph=True)
-                # gender_loss.backward(retain_graph=True)
-                # age_loss.backward()
-                
-                # sum_loss = mask_loss + gender_loss + 1.5 * age_loss
+
+                sum_loss = mask_loss + gender_loss + age_loss
+
+                # weighted summation loss update 방식
                 # sum_loss.backward()
-                
-                mg_loss = mask_loss + gender_loss
-                
-                mg_loss.backward()
+
+                # coordinate loss update 방식
+                mask_loss.backward()
+                gender_loss.backward(retain_graph=True)
                 age_loss.backward()
-                
+
                 mask_pred = torch.argmax(mask_output, dim=-1)
                 gender_pred = torch.argmax(gender_output, dim=-1)
                 age_pred = torch.argmax(age_output, dim=-1)
                 preds = mask_pred * 6 + gender_pred * 3 + age_pred
-                #loss = criterion(outs, labels)
-                #loss.backward()
-                
+
                 optimizer.step()
 
-                #loss_value += (sum_loss).item()
-                loss_value += (mg_loss + age_loss).item()
+                loss_value += (sum_loss).item()
                 m_value += mask_loss.item()
                 g_value += gender_loss.item()
                 a_value += age_loss.item()
-                
+
                 matches += (preds == labels).sum().item()
                 mask_matches += (mask_pred == mask_label).sum().item()
                 gender_matches += (gender_pred == gender_label).sum().item()
                 age_matches += (age_pred == age_label).sum().item()
-                
+
                 if (idx + 1) % args.log_interval == 0:
                     train_loss = loss_value / args.log_interval
                     m_loss = m_value / args.log_interval
                     g_loss = g_value / args.log_interval
                     a_loss = a_value / args.log_interval
-                    
+
                     train_acc = matches / args.batch_size / args.log_interval
                     m_acc = mask_matches / args.batch_size / args.log_interval
                     g_acc = gender_matches / args.batch_size / args.log_interval
@@ -338,7 +374,7 @@ class Multi_fTrainer:
                     m_value = 0
                     g_value = 0
                     a_value = 0
-                    
+
                     matches = 0
                     mask_matches = 0
                     gender_matches = 0
@@ -358,17 +394,17 @@ class Multi_fTrainer:
                     inputs, labels = val_batch
                     inputs = inputs.to(device)
                     labels = labels.to(device)
-                    mask_label, gender_label, age_label = dataset.decode_multi_class(labels)
+                    mask_label, gender_label, age_label = dataset.decode_multi_class(
+                        labels
+                    )
 
-                    #outs = model(inputs)
                     mask_output, gender_output, age_output = model(inputs)
                     mask_pred = torch.argmax(mask_output, dim=-1)
                     gender_pred = torch.argmax(gender_output, dim=-1)
                     age_pred = torch.argmax(age_output, dim=-1)
                     preds = mask_pred * 6 + gender_pred * 3 + age_pred
-                    #preds = torch.argmax(outs, dim=-1)
-                    
-                    if args.criterion == 'focal':
+
+                    if args.criterion == "focal":
                         mask_loss = m_criterion(mask_output, mask_label)
                         gender_loss = g_criterion(gender_output, gender_label)
                         age_loss = a_criterion(age_output, age_label)
@@ -376,23 +412,27 @@ class Multi_fTrainer:
                         mask_loss = criterion(mask_output, mask_label)
                         gender_loss = criterion(gender_output, gender_label)
                         age_loss = criterion(age_output, age_label)
-                        
-                    #sum_loss = mask_loss + gender_loss + 1.5 * age_loss
-                    mg_loss = mask_loss + gender_loss
-                    
-                    #loss_item = (sum_loss).item()
-                    loss_item = (mg_loss + age_loss).item()
+
+                    sum_loss = mask_loss + gender_loss + age_loss
+
+                    loss_item = (sum_loss).item()
                     acc_item = (labels == preds).sum().item()
                     val_loss_items.append(loss_item)
                     val_acc_items.append(acc_item)
-                    
+
                     # F1 score 계산
-                    f1_item = f1_score(labels.cpu().numpy(), preds.cpu().numpy(), average='macro')
+                    f1_item = f1_score(
+                        labels.cpu().numpy(), preds.cpu().numpy(), average="macro"
+                    )
                     val_f1_items.append(f1_item)
 
                     if figure is None:
                         inputs_np = (
-                            torch.clone(inputs).detach().cpu().permute(0, 2, 3, 1).numpy()
+                            torch.clone(inputs)
+                            .detach()
+                            .cpu()
+                            .permute(0, 2, 3, 1)
+                            .numpy()
                         )
                         inputs_np = dataset_module.denormalize_image(
                             inputs_np, dataset.mean, dataset.std
@@ -413,27 +453,27 @@ class Multi_fTrainer:
                     print(
                         f"New best model for val accuracy : {val_acc:4.2%}! saving the best model.."
                     )
-                
+
                     state = {
-                        'epoch': epoch,
-                        'model_state_dict': model.module.state_dict(),  # 모델의 state_dict 저장
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'scheduler_state_dict': scheduler.state_dict()
+                        "epoch": epoch,
+                        "model_state_dict": model.module.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "scheduler_state_dict": scheduler.state_dict(),
                     }
-                    torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
+                    torch.save(state, f"{save_dir}/best.pth")
                     best_val_acc = val_acc
                     counter = 0
                 else:
                     counter += 1
-                    
+
                 state = {
-                    'epoch': epoch,
-                    'model_state_dict': model.module.state_dict(),  # 모델의 state_dict 저장
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'scheduler_state_dict': scheduler.state_dict()
+                    "epoch": epoch,
+                    "model_state_dict": model.module.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "scheduler_state_dict": scheduler.state_dict(),
                 }
                 torch.save(state, f"{save_dir}/last.pth")
-                
+
                 print(
                     f"[Val] acc : {val_acc:4.2%}, loss: {val_loss:4.2}, F1 score: {val_f1:4.2} || "
                     f"best acc : {best_val_acc:4.2%}, best loss: {best_val_loss:4.2}"
@@ -442,19 +482,19 @@ class Multi_fTrainer:
                 logger.add_scalar("Val/accuracy", val_acc, epoch)
                 logger.add_scalar("Val/f1_score", val_f1, epoch)  # 추가: F1 score를 기록
                 logger.add_figure("results", figure, epoch)
-                
+
                 wandb.log(
                     {
                         "Train Loss": train_loss,
                         "Train Accuracy": train_acc,
                         "Val Loss": val_loss,
                         "Val Accuracy": val_acc,
-                        "Val F1 Score": val_f1
+                        "Val F1 Score": val_f1,
                     }
                 )
-                
+
                 print()
-                
+
                 if counter > patience:
                     print("Early Stopping...")
                     break

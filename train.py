@@ -9,6 +9,15 @@ import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
+#############################################################################################################################################
+#
+# python train.py --seed 6074 --epochs 30 --trainer Multi_coord_f --early_stopping 5 --dataset MaskSplitByProfileDataset --augmentation CustomAugmentation
+# --resize 224 224 --batch_size 32 --valid_batch_size 500 --model EfficientNetViT --optimizer AdamW --criterion focal --lr_decay_step 10
+# --name bkh_202312201600 --data_dir /data/ephemeral/home/removed_background --model_dir ./model/202312201600
+#
+# --name 은 각자의 이름 이니셜 들어가도록 허고 --data_dir 은 각자 서버에 있는 removed_background 로
+#
+#############################################################################################################################################
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -116,6 +125,13 @@ if __name__ == "__main__":
         "--model_dir", type=str, default=os.environ.get("SM_MODEL_DIR", "./model")
     )
 
+    parser.add_argument(
+        "--resume_dir",
+        type=str,
+        default=None,
+        help="path to latest checkpoint (default: None)",
+    )
+
     args = parser.parse_args()
     print(args)
 
@@ -125,16 +141,20 @@ if __name__ == "__main__":
         trainer_name = "skf_" + args.trainer.lower()
     else:
         trainer_name = args.trainer.lower()
-    train_module = getattr(import_module(f"trainer.{trainer_name}_trainer"), args.trainer+"Trainer")
-    print(f" Use {trainer_name}_trainer ...")
-    trainer = train_module(
-        data_dir, model_dir, args
+    train_module = getattr(
+        import_module(f"trainer.{trainer_name}_trainer"), args.trainer + "Trainer"
     )
-    
-    start_time = datetime.datetime.now(timezone('Asia/Seoul'))
+    print(f" Use {trainer_name}_trainer ...")
+    trainer = train_module(data_dir, model_dir, args)
+
+    start_time = datetime.datetime.now(timezone("Asia/Seoul"))
     print(f"학습 시작 : {str(start_time)[:19]}")
-    
+
     trainer.train(args)
-    
-    end_time = datetime.datetime.now(timezone('Asia/Seoul'))
+
+    end_time = datetime.datetime.now(timezone("Asia/Seoul"))
     print(f"학습 끝 : {str(end_time)[:19]}")
+
+    # 학습 소요 시간 계산 및 출력
+    elapsed_time = end_time - start_time
+    print(f"학습 소요 시간: {elapsed_time}")
