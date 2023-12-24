@@ -27,10 +27,12 @@
 ├── dataset.py
 ├── loss.py
 ├── model.py
+├── train.py
 ├── preprocess.py
 ├── inference.py
 ├── inference_ensemble.py
 ├── requirements.txt
+├── EDA.ipynb
 └── README.md
 ```
 - - -
