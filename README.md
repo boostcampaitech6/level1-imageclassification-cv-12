@@ -87,7 +87,7 @@ Augmentation 기법을 팀원 다같이 상의하여 데이터 다양성을 적�
 <p align="center"><img src="https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/model1.png" width="300" height="300"/></p>   
 2) multi-backbone   
 3개의 task가 집중해야 되는 부분이 다르고, 같은 feature를 공유하면 각각의 loss에서 계산된 gradient가 서로 상쇄될 수 있다고 판단했다. 이에 따라 여러 개의 backbone을 두어 각각 feature map 을 두거나, 2개의 feature map에 각각 2개, 1개의 head 를 mapping 하는 방식을 비교 실험했다.
-<p align="center"><img src="https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/model2.png" width="300" height="300"/></p>   
+<p align="center"><img src="https://github.com/boostcampaitech6/level1-imageclassification-cv-12/blob/main/asset/model2.png" width="900" height="300"/></p>   
 3) fine tuning   
 backbone network 로 ImageNet 으로 pretrained 된 모델들을 쓰면서 ImageNet 데이터셋이 프로젝트 데이터셋과 많이 다르다고 판단했으나, 우리가 가진 데이터셋 수가 적기 때문에 많은 수의 데이터셋으로 분류 task 로 학습된 pretrained model 들의 가중치를 활용하면서
 classifier head 보다 1/10 의 학습률로 조금씩 학습시키기로 결정했다.
