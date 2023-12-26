@@ -61,3 +61,6 @@ val graph
 ### Details
 
 (업데이트 예정)
+- - -
+### 팀 & 개인 Wrap Up Report   
+[CV_12 Wrap Up Report](https://omiino.notion.site/Image-Classification-Wrap-up-Report-05d3b45d758e451794aa8b0acf23af21?pvs=4, "notion link")
