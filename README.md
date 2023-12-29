@@ -61,10 +61,10 @@ etc
 |EDA.ipynb| EDA 및 결과 분석|   
    
 train   
-    python train.py --epochs 30 --trainer Multi_coord_f --early_stopping 5 --dataset MaskSplitByProfileDataset --augmentation CustomAugmentation --resize 224 224 --batch_size 32 --valid_batch_size 500 --model EfficientNetViT --optimizer AdamW --criterion focal --lr_decay_step 10 --name {model_name} --data_dir {train_data_path} --model_dir ./model   
+```python train.py --epochs 30 --trainer Multi_coord_f --early_stopping 5 --dataset MaskSplitByProfileDataset --augmentation CustomAugmentation --resize 224 224 --batch_size 32 --valid_batch_size 500 --model EfficientNetViT --optimizer AdamW --criterion focal --lr_decay_step 10 --name {model_name} --data_dir {train_data_path} --model_dir ./model```    
    
 inference
-    python inference.py --batch_size 1000 --resize 224 224 --model EfficientNetViT --data_dir {eval_data_path} --model_dir {best.pth_path} --output_dir ./output
+```python inference.py --batch_size 1000 --resize 224 224 --model EfficientNetViT --data_dir {eval_data_path} --model_dir {best.pth_path} --output_dir ./output```   
 - - -
 ### 프로젝트 개요
 COVID-19 바이러스는 주로 입과 호흡기에서 나오는 비말을 통해 전파되므로, 모든 사람이 마스크를 착용하여 전파 경로를 차단하는 것이 중요하다. 특히 공공장소에서의 마스크 착용은 필수적이며, 코와 입을 완전히 가리는 올바른 착용 방법을 따르는 것이 중요하다. 그러나 공공장소에서 모든 사람의 마스크 착용 상태를 확인하는 것은 인력적 제약이 있다.
