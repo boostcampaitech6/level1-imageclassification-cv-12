@@ -36,6 +36,7 @@
 ├── EDA.ipynb
 └── README.md
 ```
+trainer dir   
 |Directory|code|description|
 |:----:|:-----|:-------|
 |trainer|multi_coord_f_trainer.py|2 backbone, 3 classifier, coordinate loss update|
@@ -46,8 +47,9 @@
 ||skf_multi_trainer.py|1 backbone, 3 classifier, summation loss update, stratified k-fold|
 ||skf_single_trainer.py|1 backbone, 1 classifier, summation loss update, stratified k-fold|
    
+etc   
 |code|description|
-|:--:|:--:|
+|:--|:--:|
 |dataset.py| Dataset class 정의|
 |loss.py| Loss 정의|
 |model.py| model 정의|
