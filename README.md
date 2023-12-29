@@ -31,10 +31,27 @@
 ├── preprocess.py
 ├── inference.py
 ├── inference_ensemble.py
+├── streamlit_exec.py
 ├── requirements.txt
 ├── EDA.ipynb
 └── README.md
-```
+```   
+|trainer|multi_coord_f_trainer.py|2 backbone, 3 classifier, coordinate loss update|
+||multi_coord_trainer.py|1 backbone, 3 classifier, coordinate loss update|
+||multi_f_trainer.py|2 backbone, 3 classifier, summation loss update|
+||multi_trainer.py|1 backbone, 3 classifier, summation loss update|
+||single_trainer.py|1 backbone, 1 classifier, summation loss update|
+||skf_multi_trainer.py|1 backbone, 3 classifier, summation loss update, stratified k-fold|
+||skf_single_trainer.py|1 backbone, 1 classifier, summation loss update, stratified k-fold|
+   
+|dataset.py| Dataset class 정의|
+|loss.py| Loss 정의|
+|model.py| model 정의|
+|preprocess.py| 배경 제거, mix up 등|
+|inference.py| inference 구현|
+|inference_ensemble.py| weighted ensemble inference 구현|
+|streamlit_exec.py| streamlit 을 통한 배포|
+|EDA.ipynb| EDA 및 결과 분석|
 - - -
 ### 프로젝트 개요
 COVID-19 바이러스는 주로 입과 호흡기에서 나오는 비말을 통해 전파되므로, 모든 사람이 마스크를 착용하여 전파 경로를 차단하는 것이 중요하다. 특히 공공장소에서의 마스크 착용은 필수적이며, 코와 입을 완전히 가리는 올바른 착용 방법을 따르는 것이 중요하다. 그러나 공공장소에서 모든 사람의 마스크 착용 상태를 확인하는 것은 인력적 제약이 있다.
