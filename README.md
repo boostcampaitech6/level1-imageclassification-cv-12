@@ -59,13 +59,13 @@ etc
 |inference_ensemble.py| weighted ensemble inference 구현|
 |streamlit_exec.py| streamlit 을 통한 배포|
 |EDA.ipynb| EDA 및 결과 분석|   
-   
-train   
+- - -
+when train   
 ```
    python train.py --epochs 30 --trainer Multi_coord_f --early_stopping 5 --dataset MaskSplitByProfileDataset --augmentation CustomAugmentation --resize 224 224 --batch_size 32 --  valid_batch_size 500 --model EfficientNetViT --optimizer AdamW --criterion focal --lr_decay_step 10 --name {model_name} --data_dir {train_data_path} --model_dir ./model   
 ```
    
-inference   
+when inference   
 ```
    python inference.py --batch_size 1000 --resize 224 224 --model EfficientNetViT --data_dir {eval_data_path} --model_dir {best.pth_path} --output_dir ./output
 ```
